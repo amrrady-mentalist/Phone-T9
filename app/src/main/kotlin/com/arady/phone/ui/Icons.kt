@@ -13,8 +13,6 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.unit.Dp
 
-// The original app used inline SVG icons on a 24 x 24 grid. The same path data is drawn here directly,
-// so no icon library is needed.
 class IconPart(val pathData: String, val filled: Boolean)
 
 object PhoneIcons {
@@ -50,6 +48,10 @@ object PhoneIcons {
         IconPart("M3 16H10V21H3Z", false),
     )
 
+    val DialpadGrid = listOf(
+        IconPart("M5 5h2v2H5zm6 0h2v2h-2zm6 0h2v2h-2zM5 11h2v2H5zm6 0h2v2h-2zm6 0h2v2h-2zM5 17h2v2H5zm6 0h2v2h-2zm6 0h2v2h-2z", true),
+    )
+
     val People = listOf(
         IconPart("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2", false),
         IconPart("M13 7A4 4 0 1 1 5 7A4 4 0 1 1 13 7Z", false),
@@ -74,10 +76,50 @@ object PhoneIcons {
     val Star = listOf(
         IconPart("M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26Z", false),
     )
+
+    val Search = listOf(
+        IconPart("M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z", false),
+        IconPart("M16 16l5 5", false),
+    )
+
+    val Info = listOf(
+        IconPart("M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z", false),
+        IconPart("M12 8h.01", false),
+        IconPart("M12 11v6", false),
+    )
+
+    val Plus = listOf(
+        IconPart("M12 5v14M5 12h14", false),
+    )
+
+    val CallIncoming = listOf(
+        IconPart("M6 18L18 6M6 6v12h12", false),
+    )
+
+    val CallOutgoing = listOf(
+        IconPart("M6 18L18 6M18 18V6H6", false),
+    )
+
+    val CallMissed = listOf(
+        IconPart("M6 18L18 6M6 6v12h12", false),
+    )
+
+    val Close = listOf(
+        IconPart("M18 6L6 18M6 6l12 12", false),
+    )
+
+    val Share = listOf(
+        IconPart("M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8", false),
+        IconPart("M16 6l-4-4-4 4", false),
+        IconPart("M12 2v13", false),
+    )
+
+    val Video = listOf(
+        IconPart("M15 10l5-3v10l-5-3", false),
+        IconPart("M3 6h12v12H3z", false),
+    )
 }
 
-// Draws stroke parts with a 2 unit line (like the SVGs) and filled parts solid.
-// fillUnder paints stroke parts with a solid colour first (used for the "favorited" star).
 @Composable
 fun SvgIcon(
     parts: List<IconPart>,
@@ -96,7 +138,7 @@ fun SvgIcon(
                     drawPath(path, tint, style = Fill)
                 } else {
                     if (fillUnder != null) drawPath(path, fillUnder, style = Fill)
-                    drawPath(path, tint, style = Stroke(width = 2f))
+                    drawPath(path, tint, style = Stroke(width = 2.2f))
                 }
             }
         }

@@ -1,29 +1,48 @@
 package com.arady.phone.ui
 
+import android.content.Intent
+import android.provider.ContactsContract
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.arady.phone.PhoneViewModel
+import com.arady.phone.Tab
 import com.arady.phone.data.Contact
 
 private sealed interface ListRow {
@@ -31,8 +50,6 @@ private sealed interface ListRow {
     class Item(val contact: Contact) : ListRow
 }
 
-// Same grouping rule as the web app: Latin, Cyrillic, Arabic letters and digits get their own section,
-// everything else goes under "#".
 private val LETTER_GROUP = Regex("[A-Za-z0-9\\u0410-\\u042F\\u0430-\\u044F\\u0600-\\u06FF]")
 
 private fun buildRows(contacts: List<Contact>, query: String): List<ListRow> {
@@ -54,120 +71,310 @@ private fun buildRows(contacts: List<Contact>, query: String): List<ListRow> {
 
 @Composable
 fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
-    Column(Modifier.fillMaxSize()) {
-        Text(
-            "Contacts",
-            color = Color.White,
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 24.dp, top = 12.dp, end = 24.dp, bottom = 8.dp),
-        )
+    val context = LocalContext.current
+    var menuExpanded by remember { mutableStateOf(false) }
 
-        BasicTextField(
-            value = vm.contactsSearch,
-            onValueChange = { vm.contactsSearch = it },
-            singleLine = true,
-            textStyle = TextStyle(color = Color.White, fontSize = 15.sp),
-            cursorBrush = SolidColor(Color.White),
-            modifier = Modifier
-                .padding(start = 24.dp, top = 4.dp, end = 24.dp, bottom = 12.dp)
-                .fillMaxWidth()
-                .background(PhoneColors.SearchBg, RoundedCornerShape(10.dp))
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            decorationBox = { inner ->
-                Box {
-                    if (vm.contactsSearch.isEmpty()) {
-                        Text("Search", color = PhoneColors.TextMuted, fontSize = 15.sp)
-                    }
-                    inner()
-                }
-            },
-        )
-
-        if (!vm.contactsPermissionGranted) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 40.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    "Allow access to your contacts to see them here.",
-                    color = PhoneColors.TextMuted,
-                    fontSize = 14.sp,
-                    textAlign = TextAlign.Center,
-                )
-                Box(Modifier.height(16.dp))
-                PressBox(
-                    normal = PhoneColors.CallGreen,
-                    pressed = PhoneColors.CallGreenActive,
-                    shape = RoundedCornerShape(8.dp),
-                    onClick = requestPermission,
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(PhoneColors.BgMain)
+    ) {
+        Column(Modifier.fillMaxSize()) {
+            // Contacts Top Bar matching screenshots
+            if (!vm.isSearchingContacts) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 6.dp)
+                        .height(52.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
+                    Column {
+                        Text(
+                            text = "Contacts",
+                            color = PhoneColors.TextMain,
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = "${vm.contacts.size} contacts",
+                            color = PhoneColors.TextSecondary,
+                            fontSize = 12.sp,
+                        )
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        PressBox(
+                            normal = Color.Transparent,
+                            pressed = PhoneColors.ActionCircle,
+                            modifier = Modifier.size(38.dp),
+                            shape = CircleShape,
+                            onClick = { vm.isSearchingContacts = true },
+                        ) {
+                            SvgIcon(PhoneIcons.Search, PhoneColors.TextMain, 20.dp)
+                        }
+
+                        PressBox(
+                            normal = Color.Transparent,
+                            pressed = PhoneColors.ActionCircle,
+                            modifier = Modifier.size(38.dp),
+                            shape = CircleShape,
+                            onClick = { menuExpanded = true },
+                        ) {
+                            SvgIcon(PhoneIcons.ThreeDots, PhoneColors.TextMain, 20.dp)
+                        }
+                    }
+                }
+            } else {
+                // Search Mode Bar (Screenshots 8 & 9)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(CircleShape)
+                            .background(PhoneColors.SearchBg)
+                            .padding(horizontal = 14.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        SvgIcon(PhoneIcons.Search, PhoneColors.TextSecondary, 18.dp)
+                        Spacer(Modifier.width(8.dp))
+                        BasicTextField(
+                            value = vm.contactsSearch,
+                            onValueChange = { vm.contactsSearch = it },
+                            singleLine = true,
+                            textStyle = TextStyle(color = PhoneColors.TextMain, fontSize = 15.sp),
+                            cursorBrush = SolidColor(PhoneColors.CallGreen),
+                            modifier = Modifier.weight(1f),
+                            decorationBox = { inner ->
+                                Box {
+                                    if (vm.contactsSearch.isEmpty()) {
+                                        Text("Search contacts", color = PhoneColors.TextSecondary, fontSize = 15.sp)
+                                    }
+                                    inner()
+                                }
+                            },
+                        )
+                        if (vm.contactsSearch.isNotEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clickable { vm.contactsSearch = "" },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                SvgIcon(PhoneIcons.Close, PhoneColors.TextSecondary, 16.dp)
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.width(12.dp))
+
                     Text(
-                        "Allow Contacts Access",
-                        color = Color.White,
+                        text = "Cancel",
+                        color = PhoneColors.CallGreen,
                         fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                vm.isSearchingContacts = false
+                                vm.contactsSearch = ""
+                            }
+                            .padding(horizontal = 4.dp, vertical = 6.dp),
                     )
                 }
             }
-        } else {
-            val rows = remember(vm.contacts, vm.contactsSearch) { buildRows(vm.contacts, vm.contactsSearch) }
-            if (rows.isEmpty()) {
-                Text(
-                    if (vm.contacts.isEmpty()) "No contacts found." else "No results.",
-                    color = PhoneColors.TextMuted,
-                    fontSize = 14.sp,
-                    textAlign = TextAlign.Center,
+
+            // Contacts List / Permission Request
+            if (!vm.contactsPermissionGranted) {
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(40.dp),
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp),
+                        .padding(horizontal = 24.dp, vertical = 48.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    items(rows) { row ->
-                        when (row) {
-                            is ListRow.Header -> Text(
-                                row.letter,
-                                color = PhoneColors.CallGreen,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(start = 4.dp, top = 14.dp, bottom = 6.dp),
-                            )
-                            is ListRow.Item -> Column {
-                                PressBox(
-                                    normal = Color.Transparent,
-                                    pressed = Color(0x08FFFFFF),
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(0.dp),
-                                    contentAlignment = Alignment.CenterStart,
-                                    onClick = { vm.openContact(row.contact) },
-                                ) {
+                    Text(
+                        "Allow access to your contacts to see and search them.",
+                        color = PhoneColors.TextSecondary,
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(Modifier.height(18.dp))
+                    PressBox(
+                        normal = PhoneColors.CallGreen,
+                        pressed = PhoneColors.CallGreenActive,
+                        shape = CircleShape,
+                        onClick = requestPermission,
+                    ) {
+                        Text(
+                            "Allow Contacts Access",
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                        )
+                    }
+                }
+            } else {
+                val rows = remember(vm.contacts, vm.contactsSearch) { buildRows(vm.contacts, vm.contactsSearch) }
+                if (rows.isEmpty()) {
+                    Text(
+                        if (vm.contacts.isEmpty()) "No contacts found." else "No results.",
+                        color = PhoneColors.TextSecondary,
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(48.dp),
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp),
+                    ) {
+                        items(rows) { row ->
+                            when (row) {
+                                is ListRow.Header -> {
                                     Text(
-                                        row.contact.name,
-                                        color = Color.White,
-                                        fontSize = 16.sp,
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 11.dp),
+                                        text = row.letter,
+                                        color = PhoneColors.CallGreen,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(start = 4.dp, top = 16.dp, bottom = 6.dp),
                                     )
                                 }
-                                Box(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .height(1.dp)
-                                        .background(PhoneColors.Divider),
-                                )
+                                is ListRow.Item -> {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .clickable { vm.openContact(row.contact) }
+                                            .padding(vertical = 9.dp, horizontal = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        val avatarColor = getAvatarColor(row.contact.name)
+                                        Box(
+                                            modifier = Modifier
+                                                .size(42.dp)
+                                                .clip(CircleShape)
+                                                .background(avatarColor),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Text(
+                                                text = initialOf(row.contact.name),
+                                                color = Color.White,
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                            )
+                                        }
+
+                                        Spacer(Modifier.width(14.dp))
+
+                                        Text(
+                                            text = row.contact.name,
+                                            color = PhoneColors.TextMain,
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                    }
+                                }
                             }
+                        }
+
+                        item {
+                            Spacer(Modifier.height(100.dp))
                         }
                     }
                 }
             }
         }
+
+        // Top Overflow Dropdown Menu
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 48.dp, end = 20.dp)
+        ) {
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { menuExpanded = false },
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(PhoneColors.SurfaceElevated),
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Settings", color = PhoneColors.TextMain) },
+                    onClick = {
+                        menuExpanded = false
+                        vm.openSettings()
+                    },
+                )
+                DropdownMenuItem(
+                    text = {
+                        val currentLabel = when (vm.themeMode) {
+                            "light" -> "Dark Mode"
+                            "dark" -> "System Mode"
+                            else -> "Light Mode"
+                        }
+                        Text("Switch to $currentLabel", color = PhoneColors.TextMain)
+                    },
+                    onClick = {
+                        menuExpanded = false
+                        val nextMode = when (vm.themeMode) {
+                            "light" -> "dark"
+                            "dark" -> "system"
+                            else -> "light"
+                        }
+                        vm.applyThemeMode(nextMode)
+                    },
+                )
+            }
+        }
+
+        // Floating Action Button (+) on bottom right (Screenshot 7)
+        PressBox(
+            normal = PhoneColors.CallGreen,
+            pressed = PhoneColors.CallGreenActive,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = 24.dp, end = 24.dp)
+                .size(58.dp)
+                .shadow(8.dp, CircleShape),
+            shape = CircleShape,
+            onClick = {
+                try {
+                    val intent = Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI)
+                    context.startActivity(intent)
+                } catch (_: Exception) {
+                }
+            },
+        ) {
+            SvgIcon(PhoneIcons.Plus, Color.White, 26.dp)
+        }
+
+        // Floating Pill Navigation Bar
+        FloatingPillNav(
+            currentTab = vm.tab,
+            onCallsClick = {
+                vm.tab = Tab.KEYPAD
+            },
+            onContactsClick = {
+                vm.tab = Tab.CONTACTS
+            },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 24.dp),
+        )
     }
 }

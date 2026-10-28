@@ -1,7 +1,9 @@
 package com.arady.phone.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
@@ -16,8 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 
-// A tappable box that swaps its background while pressed (the CSS ":active" rules of the web app).
-// No ripple, to keep the flat look of the original.
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PressBox(
     normal: Color,
@@ -25,6 +26,7 @@ fun PressBox(
     modifier: Modifier = Modifier,
     shape: Shape = CircleShape,
     contentAlignment: Alignment = Alignment.Center,
+    onLongClick: (() -> Unit)? = null,
     onClick: () -> Unit,
     content: @Composable BoxScope.() -> Unit,
 ) {
@@ -34,13 +36,17 @@ fun PressBox(
         modifier = modifier
             .clip(shape)
             .background(if (isPressed) pressed else normal)
-            .clickable(interactionSource = source, indication = null, onClick = onClick),
+            .combinedClickable(
+                interactionSource = source,
+                indication = null,
+                onClick = onClick,
+                onLongClick = onLongClick,
+            ),
         contentAlignment = contentAlignment,
         content = content,
     )
 }
 
-// Plain tap without any visual feedback.
 @Composable
 fun TapBox(
     modifier: Modifier = Modifier,
@@ -50,7 +56,11 @@ fun TapBox(
 ) {
     val source = remember { MutableInteractionSource() }
     Box(
-        modifier = modifier.clickable(interactionSource = source, indication = null, onClick = onClick),
+        modifier = modifier.clickable(
+            interactionSource = source,
+            indication = null,
+            onClick = onClick,
+        ),
         contentAlignment = contentAlignment,
         content = content,
     )

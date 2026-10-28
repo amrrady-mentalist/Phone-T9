@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -37,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -98,50 +100,69 @@ private fun DetailsContent(vm: PhoneViewModel, contact: Contact) {
                         total = 0f
                     },
                     onHorizontalDrag = { _, delta ->
-                        if (valid) {
-                            total += delta
-                            val fromLeft = startX <= edgePx && total > 0
-                            val fromRight = startX >= size.width - edgePx && total < 0
-                            dragX = if (fromLeft || fromRight) abs(total) else 0f
+                        if (!valid) return@detectHorizontalDragGestures
+                        total += delta
+                        dragX = if (startX <= edgePx) total.coerceAtLeast(0f) else total.coerceAtMost(0f)
+                        if (abs(total) > closePx) {
+                            valid = false
+                            dragX = 0f
+                            vm.closeContact()
                         }
                     },
-                    onDragEnd = {
-                        if (valid && abs(total) > closePx) vm.closeContact() else dragX = 0f
-                        valid = false
-                    },
-                    onDragCancel = {
-                        dragX = 0f
-                        valid = false
-                    },
+                    onDragEnd = { dragX = 0f },
+                    onDragCancel = { dragX = 0f },
                 )
             }
             .systemBarsPadding(),
     ) {
-        // top bar
+        // top bar: back arrow (left), favorite + edit (right)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TapBox(Modifier.padding(8.dp), Alignment.Center, onClick = { vm.closeContact() }) {
-                SvgIcon(PhoneIcons.Back, Color.White, 24.dp)
-            }
             TapBox(
-                Modifier.padding(8.dp),
-                Alignment.Center,
-                onClick = {
-                    vm.trackAction("edit_contact")
-                    val uri = ContactsContract.Contacts.getLookupUri(contact.id, contact.lookupKey)
-                    val intent = Intent(Intent.ACTION_EDIT).apply {
-                        setDataAndType(uri, ContactsContract.Contacts.CONTENT_ITEM_TYPE)
-                    }
-                    launchSafely(context, intent)
-                },
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .padding(8.dp),
+                contentAlignment = Alignment.Center,
+                onClick = { vm.closeContact() },
             ) {
-                SvgIcon(PhoneIcons.Edit, Color.White, 22.dp)
+                SvgIcon(PhoneIcons.Back, PhoneColors.TextMain, 24.dp)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TapBox(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .padding(8.dp),
+                    contentAlignment = Alignment.Center,
+                    onClick = {
+                        favorite = !favorite
+                        vm.trackAction("favorite_toggle")
+                    },
+                ) {
+                    SvgIcon(
+                        PhoneIcons.Star,
+                        if (favorite) PhoneColors.Yellow else PhoneColors.TextMain,
+                        22.dp,
+                        fillUnder = if (favorite) PhoneColors.Yellow else null,
+                    )
+                }
+                TapBox(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .padding(8.dp),
+                    contentAlignment = Alignment.Center,
+                    onClick = {
+                        vm.trackAction("edit")
+                        val uri = Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_URI, contact.id.toString())
+                        launchSafely(context, Intent(Intent.ACTION_EDIT, uri))
+                    },
+                ) {
+                    SvgIcon(PhoneIcons.Edit, PhoneColors.TextMain, 22.dp)
+                }
             }
         }
 
@@ -149,94 +170,172 @@ private fun DetailsContent(vm: PhoneViewModel, contact: Contact) {
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 16.dp),
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            Spacer(Modifier.height(16.dp))
+
+            // Large Avatar Circle
+            val avatarColor = getAvatarColor(contact.name)
             Box(
                 modifier = Modifier
-                    .padding(top = 10.dp, bottom = 20.dp)
-                    .size(100.dp)
-                    .background(PhoneColors.AvatarLarge, CircleShape),
+                    .size(88.dp)
+                    .clip(CircleShape)
+                    .background(avatarColor),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(initialOf(contact.name), color = Color.White, fontSize = 42.sp, fontWeight = FontWeight.Medium)
+                Text(
+                    text = initialOf(contact.name),
+                    color = Color.White,
+                    fontSize = 36.sp,
+                    fontWeight = FontWeight.Bold,
+                )
             }
+
+            Spacer(Modifier.height(14.dp))
+
             Text(
-                contact.name,
-                color = Color.White,
+                text = contact.name,
+                color = PhoneColors.TextMain,
                 fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 28.dp),
+                modifier = Modifier.padding(horizontal = 24.dp),
             )
 
+            Spacer(Modifier.height(24.dp))
+
+            // Quick Actions Row (Call, Text, Video, Share)
+            val primaryPhone = contact.phones.firstOrNull() ?: ""
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 32.dp),
-                horizontalArrangement = Arrangement.spacedBy(28.dp, Alignment.CenterHorizontally),
+                    .padding(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
-                ActionItem("Call", PhoneIcons.Call) {
-                    vm.trackAction("call_contact")
-                    launchSafely(context, Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", contact.primaryPhone, null)))
+                ActionCircleBtn(PhoneIcons.Call, "Call") {
+                    vm.trackAction("call")
+                    if (primaryPhone.isNotEmpty()) {
+                        launchSafely(context, Intent(Intent.ACTION_DIAL, Uri.parse("tel:$primaryPhone")))
+                    }
                 }
-                ActionItem("Text", PhoneIcons.Message) {
-                    vm.trackAction("message_contact")
-                    launchSafely(context, Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", contact.primaryPhone, null)))
+                ActionCircleBtn(PhoneIcons.Message, "Text") {
+                    vm.trackAction("text")
+                    if (primaryPhone.isNotEmpty()) {
+                        launchSafely(context, Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$primaryPhone")))
+                    }
                 }
-                ActionItem(
-                    label = if (favorite) "Favorited" else "Favorite",
-                    icon = PhoneIcons.Star,
-                    tint = if (favorite) PhoneColors.Yellow else PhoneColors.AndroidBlue,
-                    fillUnder = if (favorite) PhoneColors.Yellow else null,
-                ) {
-                    favorite = !favorite
-                    vm.trackAction(if (favorite) "favorite_added" else "favorite_removed")
+                ActionCircleBtn(PhoneIcons.Video, "Video") {
+                    vm.trackAction("video")
                 }
-            }
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(PhoneColors.DetailsCard, RoundedCornerShape(16.dp))
-                    .border(1.dp, PhoneColors.DetailsCardBorder, RoundedCornerShape(16.dp))
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                for (phone in contact.phones) {
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text("Mobile", color = PhoneColors.AndroidBlue, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                        Text(phone, color = Color.White, fontSize = 16.sp)
+                ActionCircleBtn(PhoneIcons.Share, "Share") {
+                    vm.trackAction("share")
+                    if (primaryPhone.isNotEmpty()) {
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, "${contact.name}: $primaryPhone")
+                        }
+                        launchSafely(context, Intent.createChooser(shareIntent, "Share Contact"))
                     }
                 }
             }
+
+            Spacer(Modifier.height(28.dp))
+
+            // Contact Numbers Card
+            if (contact.phones.isNotEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(PhoneColors.DetailsCard)
+                        .border(1.dp, PhoneColors.DetailsCardBorder, RoundedCornerShape(20.dp))
+                        .padding(horizontal = 18.dp, vertical = 12.dp),
+                ) {
+                    Text(
+                        text = "Phone Numbers",
+                        color = PhoneColors.TextSecondary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                    for (phone in contact.phones) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    text = phone,
+                                    color = PhoneColors.TextMain,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                                Text(
+                                    text = "Mobile",
+                                    color = PhoneColors.TextSecondary,
+                                    fontSize = 12.sp,
+                                )
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                PressBox(
+                                    normal = PhoneColors.ActionCircle,
+                                    pressed = PhoneColors.ActionCircleActive,
+                                    modifier = Modifier.size(38.dp),
+                                    shape = CircleShape,
+                                    onClick = {
+                                        vm.trackAction("call")
+                                        launchSafely(context, Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+                                    },
+                                ) {
+                                    SvgIcon(PhoneIcons.Call, PhoneColors.CallGreen, 18.dp)
+                                }
+                                PressBox(
+                                    normal = PhoneColors.ActionCircle,
+                                    pressed = PhoneColors.ActionCircleActive,
+                                    modifier = Modifier.size(38.dp),
+                                    shape = CircleShape,
+                                    onClick = {
+                                        vm.trackAction("text")
+                                        launchSafely(context, Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$phone")))
+                                    },
+                                ) {
+                                    SvgIcon(PhoneIcons.Message, PhoneColors.TextMain, 18.dp)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(40.dp))
         }
     }
 }
 
 @Composable
-private fun ActionItem(
-    label: String,
-    icon: List<IconPart>,
-    tint: Color = PhoneColors.AndroidBlue,
-    fillUnder: Color? = null,
-    onClick: () -> Unit,
-) {
-    TapBox(
-        modifier = Modifier.width(60.dp),
-        contentAlignment = Alignment.TopCenter,
-        onClick = onClick,
+private fun ActionCircleBtn(icon: List<IconPart>, label: String, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            PressBox(
-                normal = PhoneColors.ActionCircle,
-                pressed = PhoneColors.ActionCircleActive,
-                modifier = Modifier.size(48.dp),
-                onClick = onClick,
-            ) {
-                SvgIcon(icon, tint, 20.dp, fillUnder = fillUnder)
-            }
-            Text(label, color = Color(0xFFE3E3E3), fontSize = 12.sp)
+        PressBox(
+            normal = PhoneColors.ActionCircle,
+            pressed = PhoneColors.ActionCircleActive,
+            modifier = Modifier.size(52.dp),
+            shape = CircleShape,
+            onClick = onClick,
+        ) {
+            SvgIcon(icon, PhoneColors.TextMain, 22.dp)
         }
+        Text(
+            text = label,
+            color = PhoneColors.TextSecondary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+        )
     }
 }

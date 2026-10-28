@@ -3,6 +3,7 @@ package com.arady.phone.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,12 +11,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -28,6 +30,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
@@ -48,7 +52,7 @@ fun PeekOverlay(vm: PhoneViewModel) {
     TapBox(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xBF000000))
+            .background(Color(0x99000000))
             .padding(24.dp),
         contentAlignment = Alignment.Center,
         onClick = { vm.closePeek() },
@@ -56,28 +60,31 @@ fun PeekOverlay(vm: PhoneViewModel) {
         // taps on the card itself must not close the popup
         TapBox(
             modifier = Modifier
-                .widthIn(max = 310.dp)
+                .widthIn(max = 330.dp)
                 .fillMaxWidth()
-                .background(PhoneColors.PeekCard, RoundedCornerShape(14.dp))
-                .border(1.dp, PhoneColors.PeekCardBorder, RoundedCornerShape(14.dp))
-                .padding(18.dp),
+                .shadow(16.dp, RoundedCornerShape(24.dp))
+                .clip(RoundedCornerShape(24.dp))
+                .background(PhoneColors.PeekCard)
+                .border(1.dp, PhoneColors.PeekCardBorder, RoundedCornerShape(24.dp))
+                .padding(20.dp),
             onClick = {},
         ) {
             Column {
                 Text(
                     "SMART RESULTS ENGINE",
-                    color = PhoneColors.TextMuted,
+                    color = PhoneColors.TextSecondary,
                     fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
                     letterSpacing = 1.2.sp,
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 14.dp),
+                        .padding(bottom = 16.dp),
                 )
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 260.dp)
+                        .heightIn(max = 280.dp)
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
@@ -85,27 +92,38 @@ fun PeekOverlay(vm: PhoneViewModel) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(PhoneColors.PeekItem, RoundedCornerShape(10.dp))
-                                .padding(14.dp),
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(PhoneColors.PeekItem)
+                                .padding(16.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text("No Match Found", color = PhoneColors.TextMuted, fontSize = 18.sp, fontWeight = FontWeight.Medium)
+                            Text(
+                                "No Match Found",
+                                color = PhoneColors.TextSecondary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium,
+                            )
                         }
                     }
                     for (item in vm.peekItems) {
                         PressBox(
                             normal = PhoneColors.PeekItem,
-                            pressed = Color(0xFF3A3A3C),
+                            pressed = PhoneColors.ActionCircleActive,
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(14.dp),
                             onClick = { vm.pickPeekWord(item.word) },
                         ) {
                             Row(
-                                modifier = Modifier.padding(14.dp),
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(item.word, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Medium)
+                                Text(
+                                    item.word,
+                                    color = PhoneColors.TextMain,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Medium,
+                                )
                                 when (item.type) {
                                     MatchType.SUGGEST -> Tag("NEXT", PhoneColors.CallGreen)
                                     MatchType.CORRECTION -> Tag("FIX", PhoneColors.Yellow)
@@ -128,12 +146,12 @@ private fun Tag(label: String, color: Color) {
         fontSize = 11.sp,
         fontWeight = FontWeight.Bold,
         modifier = Modifier
-            .background(color.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
-            .padding(horizontal = 6.dp, vertical = 2.dp),
+            .background(color.copy(alpha = 0.18f), RoundedCornerShape(6.dp))
+            .padding(horizontal = 7.dp, vertical = 3.dp),
     )
 }
 
-// "API Endpoint Setup" dialog behind the three-dot menu.
+// "Settings" dialog behind the three-dot menu with Light / Dark theme selector and API URL setup.
 @Composable
 fun SettingsOverlay(vm: PhoneViewModel) {
     if (!vm.settingsVisible) return
@@ -144,76 +162,139 @@ fun SettingsOverlay(vm: PhoneViewModel) {
     TapBox(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xD9000000))
+            .background(Color(0x99000000))
             .imePadding()
             .padding(20.dp),
         contentAlignment = Alignment.Center,
-        onClick = {},
+        onClick = { vm.closeSettings() },
     ) {
-        Column(
+        TapBox(
             modifier = Modifier
                 .widthIn(max = 360.dp)
                 .fillMaxWidth()
-                .background(PhoneColors.SettingsCard, RoundedCornerShape(16.dp))
-                .padding(24.dp),
+                .shadow(16.dp, RoundedCornerShape(24.dp))
+                .clip(RoundedCornerShape(24.dp))
+                .background(PhoneColors.SettingsCard)
+                .border(1.dp, PhoneColors.cardBorder, RoundedCornerShape(24.dp))
+                .padding(22.dp),
+            onClick = {},
         ) {
-            Text("API Endpoint Setup", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(16.dp))
-            Text("Target Public Routing URL", color = PhoneColors.TextMuted, fontSize = 13.sp)
-            Spacer(Modifier.height(6.dp))
-            BasicTextField(
-                value = text,
-                onValueChange = { text = it },
-                singleLine = true,
-                textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
-                cursorBrush = SolidColor(Color.White),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF111111), RoundedCornerShape(8.dp))
-                    .border(1.dp, Color(0xFF444444), RoundedCornerShape(8.dp))
-                    .padding(10.dp),
-                decorationBox = { inner ->
-                    Box {
-                        if (text.isEmpty()) {
-                            Text("https://endpoint.com/api", color = PhoneColors.TextMuted, fontSize = 14.sp)
+            Column {
+                Text(
+                    "Settings",
+                    color = PhoneColors.TextMain,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+
+                Spacer(Modifier.height(18.dp))
+
+                // Theme Mode Selector [ System | Light | Dark ]
+                Text(
+                    "Appearance",
+                    color = PhoneColors.TextSecondary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(CircleShape)
+                        .background(PhoneColors.SearchBg)
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    val modes = listOf("system" to "System", "light" to "Light", "dark" to "Dark")
+                    for ((modeKey, modeTitle) in modes) {
+                        val isSelected = vm.themeMode == modeKey
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(CircleShape)
+                                .background(if (isSelected) PhoneColors.SurfaceElevated else Color.Transparent)
+                                .clickable { vm.applyThemeMode(modeKey) }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = modeTitle,
+                                color = if (isSelected) PhoneColors.TextMain else PhoneColors.TextSecondary,
+                                fontSize = 13.sp,
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                            )
                         }
-                        inner()
                     }
-                },
-            )
-            Spacer(Modifier.height(20.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
-            ) {
-                PressBox(
-                    normal = Color(0xFF444444),
-                    pressed = Color(0xFF555555),
-                    shape = RoundedCornerShape(8.dp),
-                    onClick = { vm.closeSettings() },
-                ) {
-                    Text(
-                        "Cancel",
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                    )
                 }
-                PressBox(
-                    normal = PhoneColors.CallGreen,
-                    pressed = PhoneColors.CallGreenActive,
-                    shape = RoundedCornerShape(8.dp),
-                    onClick = { vm.saveApiUrl(text) },
+
+                Spacer(Modifier.height(20.dp))
+
+                // Target Public Routing URL
+                Text(
+                    "Target Public Routing URL",
+                    color = PhoneColors.TextSecondary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(Modifier.height(8.dp))
+                BasicTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    singleLine = true,
+                    textStyle = TextStyle(color = PhoneColors.TextMain, fontSize = 14.sp),
+                    cursorBrush = SolidColor(PhoneColors.CallGreen),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(PhoneColors.SearchBg)
+                        .border(1.dp, PhoneColors.cardBorder, RoundedCornerShape(12.dp))
+                        .padding(12.dp),
+                    decorationBox = { inner ->
+                        Box {
+                            if (text.isEmpty()) {
+                                Text("https://endpoint.com/api", color = PhoneColors.TextSecondary, fontSize = 14.sp)
+                            }
+                            inner()
+                        }
+                    },
+                )
+
+                Spacer(Modifier.height(24.dp))
+
+                // Action Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
                 ) {
-                    Text(
-                        "Save",
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                    )
+                    PressBox(
+                        normal = PhoneColors.ActionCircle,
+                        pressed = PhoneColors.ActionCircleActive,
+                        shape = CircleShape,
+                        onClick = { vm.closeSettings() },
+                    ) {
+                        Text(
+                            "Cancel",
+                            color = PhoneColors.TextMain,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 18.dp, vertical = 9.dp),
+                        )
+                    }
+                    PressBox(
+                        normal = PhoneColors.CallGreen,
+                        pressed = PhoneColors.CallGreenActive,
+                        shape = CircleShape,
+                        onClick = { vm.saveApiUrl(text) },
+                    ) {
+                        Text(
+                            "Save",
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 9.dp),
+                        )
+                    }
                 }
             }
         }

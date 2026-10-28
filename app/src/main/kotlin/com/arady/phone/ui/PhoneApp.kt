@@ -1,59 +1,60 @@
 package com.arady.phone.ui
 
+import android.app.Activity
+import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import com.arady.phone.PhoneViewModel
 import com.arady.phone.Tab
 
 @Composable
 fun PhoneApp(vm: PhoneViewModel, requestContactsPermission: () -> Unit) {
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(PhoneColors.BgMain),
-    ) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .systemBarsPadding()
-                .padding(bottom = 8.dp),
-        ) {
-            // top action bar with the three dots
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(40.dp)
-                    .padding(top = 0.dp, start = 20.dp, end = 20.dp),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TapBox(
-                    modifier = Modifier.padding(8.dp),
-                    contentAlignment = Alignment.Center,
-                    onClick = { vm.openSettings() },
-                ) {
-                    SvgIcon(PhoneIcons.ThreeDots, Color.White, 24.dp)
-                }
-            }
+    val systemInDark = isSystemInDarkTheme()
+    val isDark = when (vm.themeMode) {
+        "light" -> false
+        "dark" -> true
+        else -> systemInDark
+    }
 
+    val context = LocalContext.current
+    DisposableEffect(isDark) {
+        val activity = context as? ComponentActivity
+        activity?.enableEdgeToEdge(
+            statusBarStyle = if (isDark) {
+                SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+            } else {
+                SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+            },
+            navigationBarStyle = if (isDark) {
+                SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+            } else {
+                SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+            },
+        )
+        onDispose {}
+    }
+
+    PhoneTheme(darkTheme = isDark) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(PhoneColors.BgMain)
+                .systemBarsPadding(),
+        ) {
             Box(
-                Modifier
-                    .weight(1f)
+                modifier = Modifier
+                    .fillMaxSize()
                     .fillMaxWidth(),
             ) {
                 when (vm.tab) {
@@ -62,51 +63,9 @@ fun PhoneApp(vm: PhoneViewModel, requestContactsPermission: () -> Unit) {
                 }
             }
 
-            // bottom navigation: Recents (secret trigger), Keypad, Contacts
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(PhoneColors.NavBorder),
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.Black)
-                    .padding(top = 8.dp, bottom = 4.dp),
-            ) {
-                NavItem(Modifier.weight(1f), PhoneIcons.Recents, "Recents", active = false) { vm.openPeek() }
-                NavItem(Modifier.weight(1f), PhoneIcons.Keypad, "Keypad", active = vm.tab == Tab.KEYPAD) {
-                    vm.tab = Tab.KEYPAD
-                }
-                NavItem(Modifier.weight(1f), PhoneIcons.People, "Contacts", active = vm.tab == Tab.CONTACTS) {
-                    vm.tab = Tab.CONTACTS
-                }
-            }
-        }
-
-        DetailsOverlay(vm)
-        PeekOverlay(vm)
-        SettingsOverlay(vm)
-    }
-}
-
-@Composable
-private fun NavItem(
-    modifier: Modifier,
-    icon: List<IconPart>,
-    label: String,
-    active: Boolean,
-    onClick: () -> Unit,
-) {
-    val tint = if (active) Color.White else PhoneColors.TextMuted
-    TapBox(modifier = modifier, contentAlignment = Alignment.Center, onClick = onClick) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            SvgIcon(icon, tint, 22.dp)
-            Text(label, color = tint, fontSize = 11.sp)
+            DetailsOverlay(vm)
+            PeekOverlay(vm)
+            SettingsOverlay(vm)
         }
     }
 }

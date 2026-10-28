@@ -19,17 +19,60 @@ import kotlinx.coroutines.withContext
 
 enum class Tab { KEYPAD, CONTACTS }
 
+enum class CallType { INCOMING, OUTGOING, MISSED }
+
+enum class CallFilter { ALL, MISSED }
+
+data class RecentCall(
+    val id: String,
+    val name: String,
+    val number: String,
+    val type: CallType,
+    val location: String = "Unknown location",
+    val tag: String? = null,
+    val time: String,
+    val isSpam: Boolean = false,
+)
+
 class PhoneViewModel(app: Application) : AndroidViewModel(app) {
 
     private val prefs = Prefs(app)
     private val contactsRepository = ContactsRepository(app.contentResolver)
 
+    // --- theme ---
+    var themeMode by mutableStateOf(prefs.themeMode)
+
+    fun applyThemeMode(mode: String) {
+        themeMode = mode
+        prefs.themeMode = mode
+    }
+
     // --- navigation / dialer ---
     var tab by mutableStateOf(Tab.KEYPAD)
+    var keypadVisible by mutableStateOf(true)
+
+    var callFilter by mutableStateOf(CallFilter.ALL)
+    var isSearchingCalls by mutableStateOf(false)
+    var callsSearch by mutableStateOf("")
+
     var digits by mutableStateOf("")
         private set
     var digitsFlash by mutableStateOf(false)
         private set
+
+    // --- call history matching screenshots ---
+    var recentCalls by mutableStateOf<List<RecentCall>>(
+        listOf(
+            RecentCall("1", "118", "118", CallType.MISSED, "Unknown location", "Harassment Calls", "11:16 am", isSpam = true),
+            RecentCall("2", "994", "994", CallType.MISSED, "Unknown location", "Harassment Calls", "11:16 am", isSpam = true),
+            RecentCall("3", "Jio-Complaint Helpline", "198", CallType.INCOMING, "Unknown location", null, "11:16 am"),
+            RecentCall("4", "1987", "1987", CallType.MISSED, "Unknown location", "Harassment Calls", "11:16 am", isSpam = true),
+            RecentCall("5", "485", "485", CallType.INCOMING, "Unknown location", null, "11:16 am"),
+            RecentCall("6", "Distress Number", "112", CallType.OUTGOING, "Unknown location", null, "11:16 am"),
+            RecentCall("7", "Recharge", "121", CallType.OUTGOING, "Unknown location", null, "11:15 am"),
+            RecentCall("8", "+91 16003 03050", "+91 16003 03050", CallType.INCOMING, "India", null, "10:24 am"),
+        )
+    )
 
     // --- contacts ---
     var contacts by mutableStateOf<List<Contact>>(emptyList())
@@ -37,6 +80,7 @@ class PhoneViewModel(app: Application) : AndroidViewModel(app) {
     var contactsPermissionGranted by mutableStateOf(false)
         private set
     var contactsSearch by mutableStateOf("")
+    var isSearchingContacts by mutableStateOf(false)
 
     // --- details screen ---
     var detailsVisible by mutableStateOf(false)
@@ -57,7 +101,7 @@ class PhoneViewModel(app: Application) : AndroidViewModel(app) {
     var apiUrl by mutableStateOf(prefs.apiUrl)
         private set
 
-    // The priority list works instantly; the full dictionary swaps in a moment later (about a second).
+    // The priority list works instantly; the full dictionary swaps in a moment later.
     @Volatile
     private var engine: T9Engine = T9Engine.buildPriorityOnly()
     var dictionaryReady by mutableStateOf(false)
@@ -81,10 +125,15 @@ class PhoneViewModel(app: Application) : AndroidViewModel(app) {
 
     fun typeKey(key: String) {
         digits += key
+        keypadVisible = true
     }
 
     fun backspace() {
         if (digits.isNotEmpty()) digits = digits.dropLast(1)
+    }
+
+    fun clearDigits() {
+        digits = ""
     }
 
     private fun digitsOnly(): String = digits.filter { it in '0'..'9' }
@@ -133,6 +182,36 @@ class PhoneViewModel(app: Application) : AndroidViewModel(app) {
         }
         val top = engine.topWord(typed)
         send(typed, top)
+
+        // Record in recent calls
+        val newCall = RecentCall(
+            id = System.currentTimeMillis().toString(),
+            name = typed,
+            number = typed,
+            type = CallType.OUTGOING,
+            location = "Outgoing Call",
+            tag = null,
+            time = "Just now",
+        )
+        recentCalls = listOf(newCall) + recentCalls
+    }
+
+    fun dialCall(number: String, name: String = number) {
+        val newCall = RecentCall(
+            id = System.currentTimeMillis().toString(),
+            name = name,
+            number = number,
+            type = CallType.OUTGOING,
+            location = "Outgoing Call",
+            tag = null,
+            time = "Just now",
+        )
+        recentCalls = listOf(newCall) + recentCalls
+        val typed = number.filter { it in '0'..'9' }
+        if (typed.isNotEmpty()) {
+            val top = engine.topWord(typed)
+            send(typed, top)
+        }
     }
 
     // ---------------- contacts ----------------

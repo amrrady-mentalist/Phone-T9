@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.arady.phone.data.CallLogRepository
 import com.arady.phone.data.Contact
 import com.arady.phone.data.ContactsRepository
 import com.arady.phone.data.Prefs
@@ -38,6 +39,7 @@ class PhoneViewModel(app: Application) : AndroidViewModel(app) {
 
     private val prefs = Prefs(app)
     private val contactsRepository = ContactsRepository(app.contentResolver)
+    private val callLogRepository = CallLogRepository(app.contentResolver)
 
     // --- theme ---
     var themeMode by mutableStateOf(prefs.themeMode)
@@ -60,19 +62,10 @@ class PhoneViewModel(app: Application) : AndroidViewModel(app) {
     var digitsFlash by mutableStateOf(false)
         private set
 
-    // --- call history matching screenshots ---
-    var recentCalls by mutableStateOf<List<RecentCall>>(
-        listOf(
-            RecentCall("1", "118", "118", CallType.MISSED, "Unknown location", "Harassment Calls", "11:16 am", isSpam = true),
-            RecentCall("2", "994", "994", CallType.MISSED, "Unknown location", "Harassment Calls", "11:16 am", isSpam = true),
-            RecentCall("3", "Jio-Complaint Helpline", "198", CallType.INCOMING, "Unknown location", null, "11:16 am"),
-            RecentCall("4", "1987", "1987", CallType.MISSED, "Unknown location", "Harassment Calls", "11:16 am", isSpam = true),
-            RecentCall("5", "485", "485", CallType.INCOMING, "Unknown location", null, "11:16 am"),
-            RecentCall("6", "Distress Number", "112", CallType.OUTGOING, "Unknown location", null, "11:16 am"),
-            RecentCall("7", "Recharge", "121", CallType.OUTGOING, "Unknown location", null, "11:15 am"),
-            RecentCall("8", "+91 16003 03050", "+91 16003 03050", CallType.INCOMING, "India", null, "10:24 am"),
-        )
-    )
+    // --- actual device call history ---
+    var callLogPermissionGranted by mutableStateOf(false)
+        private set
+    var recentCalls by mutableStateOf<List<RecentCall>>(emptyList())
 
     // --- contacts ---
     var contacts by mutableStateOf<List<Contact>>(emptyList())
@@ -214,6 +207,26 @@ class PhoneViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // ---------------- call history ----------------
+
+    fun onCallLogPermission(granted: Boolean) {
+        callLogPermissionGranted = granted
+        if (granted) reloadCallLogs()
+    }
+
+    fun reloadCallLogs() {
+        viewModelScope.launch {
+            val loaded = withContext(Dispatchers.IO) {
+                try {
+                    callLogRepository.load(contacts)
+                } catch (_: Exception) {
+                    emptyList()
+                }
+            }
+            recentCalls = loaded
+        }
+    }
+
     // ---------------- contacts ----------------
 
     fun onContactsPermission(granted: Boolean) {
@@ -231,6 +244,17 @@ class PhoneViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
             contacts = loaded
+            // Refresh call logs with matched contact names if call log permission is on
+            if (callLogPermissionGranted) {
+                val updatedLogs = withContext(Dispatchers.IO) {
+                    try {
+                        callLogRepository.load(loaded)
+                    } catch (_: Exception) {
+                        emptyList()
+                    }
+                }
+                if (updatedLogs.isNotEmpty()) recentCalls = updatedLogs
+            }
         }
     }
 

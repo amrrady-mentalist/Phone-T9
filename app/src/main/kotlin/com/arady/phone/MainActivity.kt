@@ -17,8 +17,13 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: PhoneViewModel by viewModels()
 
-    private val contactsPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        viewModel.onContactsPermission(granted)
+    private val permissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { perms ->
+        val contactsGranted = perms[Manifest.permission.READ_CONTACTS] ?: hasContactsPermission()
+        val callLogGranted = perms[Manifest.permission.READ_CALL_LOG] ?: hasCallLogPermission()
+        viewModel.onContactsPermission(contactsGranted)
+        viewModel.onCallLogPermission(callLogGranted)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,19 +33,33 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
         )
         setContent {
-            PhoneApp(viewModel, requestContactsPermission = { contactsPermission.launch(Manifest.permission.READ_CONTACTS) })
+            PhoneApp(
+                vm = viewModel,
+                requestContactsPermission = {
+                    permissionsLauncher.launch(arrayOf(Manifest.permission.READ_CONTACTS))
+                },
+                requestCallLogPermission = {
+                    permissionsLauncher.launch(arrayOf(Manifest.permission.READ_CALL_LOG))
+                },
+            )
         }
-        if (!hasContactsPermission()) {
-            contactsPermission.launch(Manifest.permission.READ_CONTACTS)
+        val needed = mutableListOf<String>()
+        if (!hasContactsPermission()) needed.add(Manifest.permission.READ_CONTACTS)
+        if (!hasCallLogPermission()) needed.add(Manifest.permission.READ_CALL_LOG)
+        if (needed.isNotEmpty()) {
+            permissionsLauncher.launch(needed.toTypedArray())
         }
     }
 
     override fun onStart() {
         super.onStart()
-        // picks up contacts that changed while the app was in the background, or a permission granted in Settings
-        if (hasContactsPermission()) viewModel.onContactsPermission(true)
+        viewModel.onContactsPermission(hasContactsPermission())
+        viewModel.onCallLogPermission(hasCallLogPermission())
     }
 
     private fun hasContactsPermission(): Boolean =
         ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
+
+    private fun hasCallLogPermission(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
 }

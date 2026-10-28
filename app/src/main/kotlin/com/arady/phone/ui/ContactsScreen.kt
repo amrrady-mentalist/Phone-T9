@@ -3,7 +3,9 @@ package com.arady.phone.ui
 import android.content.Intent
 import android.provider.ContactsContract
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +23,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
@@ -28,22 +32,30 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.arady.phone.PhoneViewModel
 import com.arady.phone.Tab
 import com.arady.phone.data.Contact
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private sealed interface ListRow {
     class Header(val letter: String) : ListRow
@@ -73,6 +85,10 @@ private fun buildRows(contacts: List<Contact>, query: String): List<ListRow> {
 fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
     val context = LocalContext.current
     var menuExpanded by remember { mutableStateOf(false) }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    val searchFocusRequester = remember { FocusRequester() }
+    val scope = rememberCoroutineScope()
 
     Box(
         Modifier
@@ -113,7 +129,14 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
                             pressed = PhoneColors.ActionCircle,
                             modifier = Modifier.size(38.dp),
                             shape = CircleShape,
-                            onClick = { vm.isSearchingContacts = true },
+                            onClick = {
+                                vm.isSearchingContacts = true
+                                scope.launch {
+                                    delay(120)
+                                    searchFocusRequester.requestFocus()
+                                    keyboardController?.show()
+                                }
+                            },
                         ) {
                             SvgIcon(PhoneIcons.Search, PhoneColors.TextMain, 20.dp)
                         }
@@ -145,7 +168,18 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
                             .padding(horizontal = 14.dp, vertical = 9.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        SvgIcon(PhoneIcons.Search, PhoneColors.TextSecondary, 18.dp)
+                        // Clicking magnifying glass dismisses the keyboard automatically
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clickable {
+                                    keyboardController?.hide()
+                                    focusManager.clearFocus()
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            SvgIcon(PhoneIcons.Search, PhoneColors.TextSecondary, 18.dp)
+                        }
                         Spacer(Modifier.width(8.dp))
                         BasicTextField(
                             value = vm.contactsSearch,
@@ -153,7 +187,14 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
                             singleLine = true,
                             textStyle = TextStyle(color = PhoneColors.TextMain, fontSize = 15.sp),
                             cursorBrush = SolidColor(PhoneColors.CallGreen),
-                            modifier = Modifier.weight(1f),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(onSearch = {
+                                keyboardController?.hide()
+                                focusManager.clearFocus()
+                            }),
+                            modifier = Modifier
+                                .weight(1f)
+                                .focusRequester(searchFocusRequester),
                             decorationBox = { inner ->
                                 Box {
                                     if (vm.contactsSearch.isEmpty()) {
@@ -187,6 +228,8 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
                             .clickable {
                                 vm.isSearchingContacts = false
                                 vm.contactsSearch = ""
+                                focusManager.clearFocus()
+                                keyboardController?.hide()
                             }
                             .padding(horizontal = 4.dp, vertical = 6.dp),
                     )
@@ -300,7 +343,7 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
             }
         }
 
-        // Top Overflow Dropdown Menu
+        // Top Overflow Dropdown Menu with clean 20.dp rounded corners (No square edges!)
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -309,12 +352,15 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
             DropdownMenu(
                 expanded = menuExpanded,
                 onDismissRequest = { menuExpanded = false },
+                shape = RoundedCornerShape(20.dp),
+                containerColor = PhoneColors.SurfaceElevated,
+                shadowElevation = 8.dp,
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
-                    .background(PhoneColors.SurfaceElevated),
+                    .border(1.dp, PhoneColors.cardBorder, RoundedCornerShape(20.dp)),
             ) {
                 DropdownMenuItem(
-                    text = { Text("Settings", color = PhoneColors.TextMain) },
+                    text = { Text("Settings", color = PhoneColors.TextMain, fontWeight = FontWeight.Medium) },
                     onClick = {
                         menuExpanded = false
                         vm.openSettings()
@@ -327,7 +373,7 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
                             "dark" -> "System Mode"
                             else -> "Light Mode"
                         }
-                        Text("Switch to $currentLabel", color = PhoneColors.TextMain)
+                        Text("Switch to $currentLabel", color = PhoneColors.TextMain, fontWeight = FontWeight.Medium)
                     },
                     onClick = {
                         menuExpanded = false
@@ -339,42 +385,53 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
                         vm.applyThemeMode(nextMode)
                     },
                 )
+                DropdownMenuItem(
+                    text = { Text("Refresh Contacts", color = PhoneColors.TextSecondary) },
+                    onClick = {
+                        menuExpanded = false
+                        vm.reloadContacts()
+                    },
+                )
             }
         }
 
-        // Floating Action Button (+) on bottom right (Screenshot 7)
-        PressBox(
-            normal = PhoneColors.CallGreen,
-            pressed = PhoneColors.CallGreenActive,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(bottom = 24.dp, end = 24.dp)
-                .size(58.dp)
-                .shadow(8.dp, CircleShape),
-            shape = CircleShape,
-            onClick = {
-                try {
-                    val intent = Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI)
-                    context.startActivity(intent)
-                } catch (_: Exception) {
-                }
-            },
-        ) {
-            SvgIcon(PhoneIcons.Plus, Color.White, 26.dp)
-        }
-
-        // Floating Pill Navigation Bar
-        FloatingPillNav(
-            currentTab = vm.tab,
-            onCallsClick = {
-                vm.tab = Tab.KEYPAD
-            },
-            onContactsClick = {
-                vm.tab = Tab.CONTACTS
-            },
+        // Bottom Coordinated Floating Row (Side-by-side: Pill Nav + Green + FAB)
+        // Guaranteed never to overlap on any screen width!
+        Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 24.dp),
-        )
+                .padding(bottom = 20.dp, start = 16.dp, end = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            FloatingPillNav(
+                currentTab = vm.tab,
+                onCallsClick = {
+                    vm.tab = Tab.KEYPAD
+                },
+                onContactsClick = {
+                    vm.tab = Tab.CONTACTS
+                },
+            )
+
+            // Floating Action Button (+) on the right
+            PressBox(
+                normal = PhoneColors.CallGreen,
+                pressed = PhoneColors.CallGreenActive,
+                modifier = Modifier
+                    .size(56.dp)
+                    .shadow(6.dp, CircleShape),
+                shape = CircleShape,
+                onClick = {
+                    try {
+                        val intent = Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI)
+                        context.startActivity(intent)
+                    } catch (_: Exception) {
+                    }
+                },
+            ) {
+                SvgIcon(PhoneIcons.Plus, Color.White, 24.dp)
+            }
+        }
     }
 }

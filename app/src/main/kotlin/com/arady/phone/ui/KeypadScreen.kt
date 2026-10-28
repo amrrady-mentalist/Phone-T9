@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,7 +18,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,6 +26,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
@@ -33,15 +35,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -52,6 +60,8 @@ import com.arady.phone.PhoneViewModel
 import com.arady.phone.RecentCall
 import com.arady.phone.Tab
 import com.arady.phone.data.Contact
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private class KeyDef(val value: String, val letters: String)
 
@@ -63,8 +73,15 @@ private val KEY_ROWS = listOf(
 )
 
 @Composable
-fun KeypadScreen(vm: PhoneViewModel) {
+fun KeypadScreen(
+    vm: PhoneViewModel,
+    requestCallLogPermission: () -> Unit,
+) {
     var menuExpanded by remember { mutableStateOf(false) }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    val searchFocusRequester = remember { FocusRequester() }
+    val scope = rememberCoroutineScope()
 
     Box(
         Modifier
@@ -76,51 +93,135 @@ fun KeypadScreen(vm: PhoneViewModel) {
             // Top Bar matching screenshots
             CallsTopBar(
                 vm = vm,
+                searchFocusRequester = searchFocusRequester,
+                onSearchClick = {
+                    if (!vm.isSearchingCalls) {
+                        vm.isSearchingCalls = true
+                        vm.keypadVisible = false // Dismiss dialpad when searching
+                        scope.launch {
+                            delay(120)
+                            searchFocusRequester.requestFocus()
+                            keyboardController?.show()
+                        }
+                    } else {
+                        // Dismiss search and keyboard automatically
+                        vm.isSearchingCalls = false
+                        vm.callsSearch = ""
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    }
+                },
+                onCancelSearch = {
+                    vm.isSearchingCalls = false
+                    vm.callsSearch = ""
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                },
                 onMenuClick = { menuExpanded = true },
             )
 
-            // Calls List
-            val filteredCalls = remember(vm.recentCalls, vm.callFilter, vm.callsSearch) {
-                val q = vm.callsSearch.trim().lowercase()
-                vm.recentCalls.filter { call ->
-                    val matchesFilter = when (vm.callFilter) {
-                        CallFilter.ALL -> true
-                        CallFilter.MISSED -> call.type == CallType.MISSED || call.isSpam
-                    }
-                    val matchesSearch = q.isEmpty() ||
-                        call.name.lowercase().contains(q) ||
-                        call.number.contains(q) ||
-                        call.location.lowercase().contains(q)
-                    matchesFilter && matchesSearch
-                }
-            }
-
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-            ) {
-                items(filteredCalls, key = { it.id }) { call ->
-                    CallItemRow(
-                        call = call,
-                        onClick = { vm.dialCall(call.number, call.name) },
-                        onInfoClick = {
-                            val contact = vm.contacts.firstOrNull { it.phones.any { p -> p.contains(call.number) } }
-                                ?: Contact(id = call.id.toLongOrNull() ?: 0L, lookupKey = call.number, name = call.name, phones = listOf(call.number))
-                            vm.openContact(contact)
-                        },
+            // If call log permission is not yet granted, show prompt
+            if (!vm.callLogPermissionGranted) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 36.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = "Allow access to call logs to view your actual call history and missed calls.",
+                        color = PhoneColors.TextSecondary,
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center,
                     )
+                    Spacer(Modifier.height(16.dp))
+                    PressBox(
+                        normal = PhoneColors.CallGreen,
+                        pressed = PhoneColors.CallGreenActive,
+                        shape = CircleShape,
+                        onClick = requestCallLogPermission,
+                    ) {
+                        Text(
+                            text = "Allow Call Log Access",
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 22.dp, vertical = 11.dp),
+                        )
+                    }
+                }
+            } else {
+                // Actual Calls List
+                val filteredCalls = remember(vm.recentCalls, vm.callFilter, vm.callsSearch) {
+                    val q = vm.callsSearch.trim().lowercase()
+                    vm.recentCalls.filter { call ->
+                        val matchesFilter = when (vm.callFilter) {
+                            CallFilter.ALL -> true
+                            CallFilter.MISSED -> call.type == CallType.MISSED || call.isSpam
+                        }
+                        val matchesSearch = q.isEmpty() ||
+                            call.name.lowercase().contains(q) ||
+                            call.number.contains(q) ||
+                            call.location.lowercase().contains(q)
+                        matchesFilter && matchesSearch
+                    }
                 }
 
-                // Extra padding at bottom to clear either the bottom navigation or keypad
-                item {
-                    Spacer(Modifier.height(if (vm.keypadVisible) 480.dp else 110.dp))
+                if (filteredCalls.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .padding(horizontal = 24.dp, vertical = 40.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = if (vm.callsSearch.isNotEmpty()) {
+                                "No calls found."
+                            } else if (vm.callFilter == CallFilter.MISSED) {
+                                "No missed calls."
+                            } else {
+                                "No call history."
+                            },
+                            color = PhoneColors.TextSecondary,
+                            fontSize = 15.sp,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                    ) {
+                        items(filteredCalls, key = { it.id }) { call ->
+                            CallItemRow(
+                                call = call,
+                                onClick = { vm.dialCall(call.number, call.name) },
+                                onInfoClick = {
+                                    val contact = vm.contacts.firstOrNull { it.phones.any { p -> p.contains(call.number) } }
+                                        ?: Contact(
+                                            id = call.id.toLongOrNull() ?: 0L,
+                                            lookupKey = call.number,
+                                            name = call.name,
+                                            phones = listOf(call.number),
+                                        )
+                                    vm.openContact(contact)
+                                },
+                            )
+                        }
+
+                        // Extra padding at bottom to clear bottom row
+                        item {
+                            Spacer(Modifier.height(if (vm.keypadVisible) 480.dp else 110.dp))
+                        }
+                    }
                 }
             }
         }
 
-        // Top Overflow Dropdown Menu
+        // Top Overflow Dropdown Menu with cleanly rounded corners
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -129,9 +230,11 @@ fun KeypadScreen(vm: PhoneViewModel) {
             DropdownMenu(
                 expanded = menuExpanded,
                 onDismissRequest = { menuExpanded = false },
+                shape = RoundedCornerShape(20.dp),
+                containerColor = PhoneColors.SurfaceElevated,
+                shadowElevation = 8.dp,
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
-                    .background(PhoneColors.SurfaceElevated)
                     .border(1.dp, PhoneColors.cardBorder, RoundedCornerShape(20.dp)),
             ) {
                 DropdownMenuItem(
@@ -161,58 +264,55 @@ fun KeypadScreen(vm: PhoneViewModel) {
                     },
                 )
                 DropdownMenuItem(
-                    text = { Text("Clear History", color = PhoneColors.TextSecondary) },
+                    text = { Text("Refresh Call Log", color = PhoneColors.TextSecondary) },
                     onClick = {
                         menuExpanded = false
-                        vm.recentCalls = emptyList()
+                        vm.reloadCallLogs()
                     },
                 )
             }
         }
 
-        // Floating Action Button on Bottom Right when keypad is hidden (Screenshots 5 & 6)
+        // Bottom Coordinated Floating Bar when keypad is hidden (Side-by-side: Pill Nav + Dialpad FAB)
+        // This ensures they NEVER overlap on any screen width!
         AnimatedVisibility(
             visible = !vm.keypadVisible,
-            enter = fadeIn(tween(200)),
-            exit = fadeOut(tween(200)),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(bottom = 24.dp, end = 24.dp),
-        ) {
-            PressBox(
-                normal = PhoneColors.CallGreen,
-                pressed = PhoneColors.CallGreenActive,
-                modifier = Modifier
-                    .size(58.dp)
-                    .shadow(8.dp, CircleShape),
-                shape = CircleShape,
-                onClick = { vm.keypadVisible = true },
-            ) {
-                SvgIcon(PhoneIcons.DialpadGrid, Color.White, 26.dp)
-            }
-        }
-
-        // Floating Pill Navigation Bar when keypad is hidden
-        AnimatedVisibility(
-            visible = !vm.keypadVisible,
-            enter = fadeIn(tween(200)),
-            exit = fadeOut(tween(200)),
+            enter = fadeIn(tween(180)),
+            exit = fadeOut(tween(150)),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 24.dp),
+                .padding(bottom = 20.dp, start = 16.dp, end = 16.dp),
         ) {
-            FloatingPillNav(
-                currentTab = vm.tab,
-                onCallsClick = {
-                    if (vm.digits.isNotEmpty()) {
-                        vm.openPeek()
-                    } else {
-                        vm.tab = Tab.KEYPAD
-                        vm.keypadVisible = true
-                    }
-                },
-                onContactsClick = { vm.tab = Tab.CONTACTS },
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                FloatingPillNav(
+                    currentTab = vm.tab,
+                    onCallsClick = {
+                        if (vm.digits.isNotEmpty()) {
+                            vm.openPeek()
+                        } else {
+                            vm.tab = Tab.KEYPAD
+                            vm.keypadVisible = true
+                        }
+                    },
+                    onContactsClick = { vm.tab = Tab.CONTACTS },
+                )
+
+                // Dialpad FAB
+                PressBox(
+                    normal = PhoneColors.CallGreen,
+                    pressed = PhoneColors.CallGreenActive,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .shadow(6.dp, CircleShape),
+                    shape = CircleShape,
+                    onClick = { vm.keypadVisible = true },
+                ) {
+                    SvgIcon(PhoneIcons.DialpadGrid, Color.White, 24.dp)
+                }
+            }
         }
 
         // Keypad Bottom Sheet (Screenshots 1, 2, 3, 4, 11)
@@ -230,8 +330,14 @@ fun KeypadScreen(vm: PhoneViewModel) {
 @Composable
 private fun CallsTopBar(
     vm: PhoneViewModel,
+    searchFocusRequester: FocusRequester,
+    onSearchClick: () -> Unit,
+    onCancelSearch: () -> Unit,
     onMenuClick: () -> Unit,
 ) {
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -306,7 +412,7 @@ private fun CallsTopBar(
                     pressed = PhoneColors.ActionCircle,
                     modifier = Modifier.size(36.dp),
                     shape = CircleShape,
-                    onClick = { vm.isSearchingCalls = !vm.isSearchingCalls },
+                    onClick = onSearchClick,
                 ) {
                     SvgIcon(PhoneIcons.Search, PhoneColors.TextMain, 20.dp)
                 }
@@ -329,38 +435,75 @@ private fun CallsTopBar(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp, bottom = 4.dp)
-                    .clip(CircleShape)
-                    .background(PhoneColors.SearchBg)
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                    .padding(top = 8.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                SvgIcon(PhoneIcons.Search, PhoneColors.TextSecondary, 18.dp)
-                Spacer(Modifier.width(8.dp))
-                BasicTextField(
-                    value = vm.callsSearch,
-                    onValueChange = { vm.callsSearch = it },
-                    singleLine = true,
-                    textStyle = TextStyle(color = PhoneColors.TextMain, fontSize = 14.sp),
-                    cursorBrush = SolidColor(PhoneColors.CallGreen),
-                    modifier = Modifier.weight(1f),
-                    decorationBox = { inner ->
-                        if (vm.callsSearch.isEmpty()) {
-                            Text("Search calls", color = PhoneColors.TextSecondary, fontSize = 14.sp)
-                        }
-                        inner()
-                    },
-                )
-                if (vm.callsSearch.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(CircleShape)
+                        .background(PhoneColors.SearchBg)
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // Clicking search icon dismisses the keyboard automatically
                     Box(
                         modifier = Modifier
                             .size(24.dp)
-                            .clickable { vm.callsSearch = "" },
+                            .clickable {
+                                keyboardController?.hide()
+                                focusManager.clearFocus()
+                            },
                         contentAlignment = Alignment.Center,
                     ) {
-                        SvgIcon(PhoneIcons.Close, PhoneColors.TextSecondary, 16.dp)
+                        SvgIcon(PhoneIcons.Search, PhoneColors.TextSecondary, 18.dp)
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    BasicTextField(
+                        value = vm.callsSearch,
+                        onValueChange = { vm.callsSearch = it },
+                        singleLine = true,
+                        textStyle = TextStyle(color = PhoneColors.TextMain, fontSize = 14.sp),
+                        cursorBrush = SolidColor(PhoneColors.CallGreen),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = {
+                            keyboardController?.hide()
+                            focusManager.clearFocus()
+                        }),
+                        modifier = Modifier
+                            .weight(1f)
+                            .focusRequester(searchFocusRequester),
+                        decorationBox = { inner ->
+                            if (vm.callsSearch.isEmpty()) {
+                                Text("Search calls", color = PhoneColors.TextSecondary, fontSize = 14.sp)
+                            }
+                            inner()
+                        },
+                    )
+                    if (vm.callsSearch.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clickable { vm.callsSearch = "" },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            SvgIcon(PhoneIcons.Close, PhoneColors.TextSecondary, 16.dp)
+                        }
                     }
                 }
+
+                Spacer(Modifier.width(10.dp))
+
+                Text(
+                    text = "Cancel",
+                    color = PhoneColors.CallGreen,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(onClick = onCancelSearch)
+                        .padding(horizontal = 4.dp, vertical = 6.dp),
+                )
             }
         }
     }
@@ -425,7 +568,7 @@ private fun CallItemRow(
                 val arrowTint = if (call.isSpam || call.type == CallType.MISSED) PhoneColors.OrangeAlert else PhoneColors.TextSecondary
                 SvgIcon(arrowIcon, arrowTint, 12.dp)
 
-                // VoLTE HD badge
+                // VoLTE badge
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(3.dp))
@@ -450,7 +593,7 @@ private fun CallItemRow(
                 )
             }
 
-            // Spam / Warning tag (e.g. "Harassment Calls")
+            // Spam / Warning tag
             if (call.tag != null) {
                 Spacer(Modifier.height(2.dp))
                 Text(

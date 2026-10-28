@@ -1,6 +1,5 @@
 package com.arady.phone.ui
 
-import android.app.Activity
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
@@ -13,13 +12,16 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import com.arady.phone.PhoneViewModel
 import com.arady.phone.Tab
 
 @Composable
-fun PhoneApp(vm: PhoneViewModel, requestContactsPermission: () -> Unit) {
+fun PhoneApp(
+    vm: PhoneViewModel,
+    requestContactsPermission: () -> Unit,
+    requestCallLogPermission: () -> Unit,
+) {
     val systemInDark = isSystemInDarkTheme()
     val isDark = when (vm.themeMode) {
         "light" -> false
@@ -58,8 +60,14 @@ fun PhoneApp(vm: PhoneViewModel, requestContactsPermission: () -> Unit) {
                     .fillMaxWidth(),
             ) {
                 when (vm.tab) {
-                    Tab.KEYPAD -> KeypadScreen(vm)
-                    Tab.CONTACTS -> ContactsScreen(vm, requestContactsPermission)
+                    Tab.KEYPAD -> KeypadScreen(
+                        vm = vm,
+                        requestCallLogPermission = requestCallLogPermission,
+                    )
+                    Tab.CONTACTS -> ContactsScreen(
+                        vm = vm,
+                        requestPermission = requestContactsPermission,
+                    )
                 }
             }
 

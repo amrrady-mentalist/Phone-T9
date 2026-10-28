@@ -1,0 +1,6 @@
+{
+  "name": "Phone",
+  "description": "Native dialer with a hidden T9 predictive engine, contact search, keypad, and API dispatch.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

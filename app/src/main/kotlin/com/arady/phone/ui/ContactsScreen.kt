@@ -96,9 +96,9 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
         Box(
             Modifier
                 .fillMaxSize()
+                .glassSource(glass)
                 .background(PhoneColors.BgMain)
                 .ambientGlow()
-                .glassSource(glass)
         ) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             // Contacts Top Bar matching screenshots

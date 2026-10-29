@@ -52,8 +52,7 @@ fun PhoneApp(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(PhoneColors.BgMain)
-                .systemBarsPadding(),
+                .background(PhoneColors.BgMain),
         ) {
             Box(
                 modifier = Modifier

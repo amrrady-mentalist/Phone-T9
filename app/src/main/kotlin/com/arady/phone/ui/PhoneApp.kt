@@ -48,6 +48,7 @@ fun PhoneApp(
     }
 
     PhoneTheme(darkTheme = isDark) {
+        val rootGlass = rememberGlassSource()
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -57,7 +58,8 @@ fun PhoneApp(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .glassSource(rootGlass),
             ) {
                 when (vm.tab) {
                     Tab.KEYPAD -> KeypadScreen(
@@ -72,8 +74,8 @@ fun PhoneApp(
             }
 
             DetailsOverlay(vm)
-            PeekOverlay(vm)
-            SettingsOverlay(vm)
+            PeekOverlay(vm, rootGlass)
+            SettingsOverlay(vm, rootGlass)
         }
     }
 }

@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -93,7 +95,7 @@ fun KeypadScreen(
                 .glassSource(glass)
         ) {
         // Main Calls Screen: Header + Calls List
-        Column(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().statusBarsPadding()) {
             // Top Bar matching screenshots
             CallsTopBar(
                 vm = vm,
@@ -233,6 +235,7 @@ fun KeypadScreen(
             exit = fadeOut(tween(150)),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
                 .padding(bottom = 20.dp, start = 16.dp, end = 16.dp),
         ) {
             Row(
@@ -606,6 +609,7 @@ private fun KeypadSheet(vm: PhoneViewModel, glass: GlassSource) {
         modifier = Modifier
             .fillMaxWidth()
             .glass(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp), PhoneGlass.sheet, glass)
+            .navigationBarsPadding()
             .padding(top = 10.dp, bottom = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

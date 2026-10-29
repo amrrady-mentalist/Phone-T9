@@ -28,8 +28,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -83,11 +81,17 @@ fun KeypadScreen(
     val searchFocusRequester = remember { FocusRequester() }
     val scope = rememberCoroutineScope()
 
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(PhoneColors.BgMain)
-    ) {
+    val glass = rememberGlassSource()
+
+    Box(Modifier.fillMaxSize()) {
+        // Everything inside this Box is what the glass panels blur.
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(PhoneColors.BgMain)
+                .ambientGlow()
+                .glassSource(glass)
+        ) {
         // Main Calls Screen: Header + Calls List
         Column(Modifier.fillMaxSize()) {
             // Top Bar matching screenshots
@@ -135,9 +139,7 @@ fun KeypadScreen(
                         textAlign = TextAlign.Center,
                     )
                     Spacer(Modifier.height(16.dp))
-                    PressBox(
-                        normal = PhoneColors.CallGreen,
-                        pressed = PhoneColors.CallGreenActive,
+                    GlossButton(
                         shape = CircleShape,
                         onClick = requestCallLogPermission,
                     ) {
@@ -221,56 +223,6 @@ fun KeypadScreen(
             }
         }
 
-        // Top Overflow Dropdown Menu with cleanly rounded corners
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 48.dp, end = 20.dp)
-        ) {
-            DropdownMenu(
-                expanded = menuExpanded,
-                onDismissRequest = { menuExpanded = false },
-                shape = RoundedCornerShape(20.dp),
-                containerColor = PhoneColors.SurfaceElevated,
-                shadowElevation = 8.dp,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .border(1.dp, PhoneColors.cardBorder, RoundedCornerShape(20.dp)),
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Settings", color = PhoneColors.TextMain, fontWeight = FontWeight.Medium) },
-                    onClick = {
-                        menuExpanded = false
-                        vm.openSettings()
-                    },
-                )
-                DropdownMenuItem(
-                    text = {
-                        val currentLabel = when (vm.themeMode) {
-                            "light" -> "Dark Mode"
-                            "dark" -> "System Mode"
-                            else -> "Light Mode"
-                        }
-                        Text("Switch to $currentLabel", color = PhoneColors.TextMain, fontWeight = FontWeight.Medium)
-                    },
-                    onClick = {
-                        menuExpanded = false
-                        val nextMode = when (vm.themeMode) {
-                            "light" -> "dark"
-                            "dark" -> "system"
-                            else -> "light"
-                        }
-                        vm.applyThemeMode(nextMode)
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text("Refresh Call Log", color = PhoneColors.TextSecondary) },
-                    onClick = {
-                        menuExpanded = false
-                        vm.reloadCallLogs()
-                    },
-                )
-            }
         }
 
         // Bottom Coordinated Floating Bar when keypad is hidden (Side-by-side: Pill Nav + Dialpad FAB)
@@ -298,16 +250,13 @@ fun KeypadScreen(
                         }
                     },
                     onContactsClick = { vm.tab = Tab.CONTACTS },
+                    glass = glass,
                 )
 
                 // Dialpad FAB
-                PressBox(
-                    normal = PhoneColors.CallGreen,
-                    pressed = PhoneColors.CallGreenActive,
-                    modifier = Modifier
-                        .size(56.dp)
-                        .shadow(6.dp, CircleShape),
+                GlossButton(
                     shape = CircleShape,
+                    modifier = Modifier.size(56.dp),
                     onClick = { vm.keypadVisible = true },
                 ) {
                     SvgIcon(PhoneIcons.DialpadGrid, Color.White, 24.dp)
@@ -322,7 +271,33 @@ fun KeypadScreen(
             exit = slideOutVertically(tween(220)) { it } + fadeOut(tween(150)),
             modifier = Modifier.align(Alignment.BottomCenter),
         ) {
-            KeypadSheet(vm = vm)
+            KeypadSheet(vm = vm, glass = glass)
+        }
+
+        // Overflow menu (glass card), last so it sits on top of everything
+        GlassMenu(expanded = menuExpanded, onDismiss = { menuExpanded = false }, glass = glass) {
+            GlassMenuItem("Settings") {
+                menuExpanded = false
+                vm.openSettings()
+            }
+            val currentLabel = when (vm.themeMode) {
+                "light" -> "Dark Mode"
+                "dark" -> "System Mode"
+                else -> "Light Mode"
+            }
+            GlassMenuItem("Switch to $currentLabel") {
+                menuExpanded = false
+                val nextMode = when (vm.themeMode) {
+                    "light" -> "dark"
+                    "dark" -> "system"
+                    else -> "light"
+                }
+                vm.applyThemeMode(nextMode)
+            }
+            GlassMenuItem("Refresh Call Log", color = PhoneColors.TextSecondary) {
+                menuExpanded = false
+                vm.reloadCallLogs()
+            }
         }
     }
 }
@@ -366,16 +341,14 @@ private fun CallsTopBar(
                 Row(
                     modifier = Modifier
                         .height(34.dp)
-                        .clip(CircleShape)
-                        .background(PhoneColors.TopToggleBg)
+                        .glass(CircleShape, PhoneGlass.track)
                         .padding(3.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     val allSelected = vm.callFilter == CallFilter.ALL
                     Box(
                         modifier = Modifier
-                            .clip(CircleShape)
-                            .background(if (allSelected) PhoneColors.TopToggleSelected else Color.Transparent)
+                            .then(if (allSelected) Modifier.glass(CircleShape, PhoneGlass.selected) else Modifier.clip(CircleShape))
                             .clickable { vm.callFilter = CallFilter.ALL }
                             .padding(horizontal = 14.dp, vertical = 4.dp),
                         contentAlignment = Alignment.Center,
@@ -391,8 +364,7 @@ private fun CallsTopBar(
                     val missedSelected = vm.callFilter == CallFilter.MISSED
                     Box(
                         modifier = Modifier
-                            .clip(CircleShape)
-                            .background(if (missedSelected) PhoneColors.TopToggleSelected else Color.Transparent)
+                            .then(if (missedSelected) Modifier.glass(CircleShape, PhoneGlass.selected) else Modifier.clip(CircleShape))
                             .clickable { vm.callFilter = CallFilter.MISSED }
                             .padding(horizontal = 12.dp, vertical = 4.dp),
                         contentAlignment = Alignment.Center,
@@ -407,22 +379,20 @@ private fun CallsTopBar(
                 }
 
                 // Search Icon Button
-                PressBox(
-                    normal = Color.Transparent,
-                    pressed = PhoneColors.ActionCircle,
-                    modifier = Modifier.size(36.dp),
+                GlassButton(
                     shape = CircleShape,
+                    style = PhoneGlass.circle,
+                    modifier = Modifier.size(36.dp),
                     onClick = onSearchClick,
                 ) {
                     SvgIcon(PhoneIcons.Search, PhoneColors.TextMain, 20.dp)
                 }
 
                 // Three-dots Menu Button
-                PressBox(
-                    normal = Color.Transparent,
-                    pressed = PhoneColors.ActionCircle,
-                    modifier = Modifier.size(36.dp),
+                GlassButton(
                     shape = CircleShape,
+                    style = PhoneGlass.circle,
+                    modifier = Modifier.size(36.dp),
                     onClick = onMenuClick,
                 ) {
                     SvgIcon(PhoneIcons.ThreeDots, PhoneColors.TextMain, 20.dp)
@@ -441,8 +411,7 @@ private fun CallsTopBar(
                 Row(
                     modifier = Modifier
                         .weight(1f)
-                        .clip(CircleShape)
-                        .background(PhoneColors.SearchBg)
+                        .glass(CircleShape, PhoneGlass.track)
                         .padding(horizontal = 14.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -632,13 +601,11 @@ private fun CallItemRow(
 }
 
 @Composable
-private fun KeypadSheet(vm: PhoneViewModel) {
+private fun KeypadSheet(vm: PhoneViewModel, glass: GlassSource) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(16.dp, RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
-            .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
-            .background(PhoneColors.SurfaceElevated)
+            .glass(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp), PhoneGlass.sheet, glass)
             .padding(top = 10.dp, bottom = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -662,14 +629,13 @@ private fun KeypadSheet(vm: PhoneViewModel) {
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 for ((contact, phone) in suggestions) {
-                    PressBox(
-                        normal = PhoneColors.ActionCircle,
-                        pressed = PhoneColors.ActionCircleActive,
+                    GlassButton(
+                        shape = RoundedCornerShape(16.dp),
+                        style = PhoneGlass.item,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        contentAlignment = Alignment.CenterStart,
                         onClick = { vm.openContact(contact) },
                     ) {
+                      Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
                         Row(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -700,6 +666,7 @@ private fun KeypadSheet(vm: PhoneViewModel) {
                                 Text(phone, color = PhoneColors.TextSecondary, fontSize = 11.sp)
                             }
                         }
+                      }
                     }
                 }
             }
@@ -738,10 +705,9 @@ private fun KeypadSheet(vm: PhoneViewModel) {
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     for (key in row) {
-                        PressBox(
-                            normal = PhoneColors.SurfaceKey,
-                            pressed = PhoneColors.SurfaceKeyActive,
+                        GlassButton(
                             shape = RoundedCornerShape(22.dp),
+                            style = PhoneGlass.key,
                             modifier = Modifier
                                 .weight(1f)
                                 .height(52.dp),
@@ -784,10 +750,9 @@ private fun KeypadSheet(vm: PhoneViewModel) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Left Pill: Toggle / Hide Keypad
-            PressBox(
-                normal = PhoneColors.SurfaceKey,
-                pressed = PhoneColors.SurfaceKeyActive,
+            GlassButton(
                 shape = RoundedCornerShape(20.dp),
+                style = PhoneGlass.key,
                 modifier = Modifier
                     .width(64.dp)
                     .height(48.dp),
@@ -797,24 +762,20 @@ private fun KeypadSheet(vm: PhoneViewModel) {
             }
 
             // Center Pill: Green Call Button (Wide Stadium Pill)
-            PressBox(
-                normal = PhoneColors.CallGreen,
-                pressed = PhoneColors.CallGreenActive,
+            GlossButton(
                 shape = CircleShape,
                 modifier = Modifier
                     .width(110.dp)
-                    .height(54.dp)
-                    .shadow(6.dp, CircleShape),
+                    .height(54.dp),
                 onClick = { vm.pressCall() },
             ) {
                 SvgIcon(PhoneIcons.Call, Color.White, 26.dp)
             }
 
             // Right Pill: Backspace Button
-            PressBox(
-                normal = PhoneColors.SurfaceKey,
-                pressed = PhoneColors.SurfaceKeyActive,
+            GlassButton(
                 shape = RoundedCornerShape(20.dp),
+                style = PhoneGlass.key,
                 modifier = Modifier
                     .width(64.dp)
                     .height(48.dp),
@@ -837,6 +798,7 @@ private fun KeypadSheet(vm: PhoneViewModel) {
                 }
             },
             onContactsClick = { vm.tab = Tab.CONTACTS },
+            docked = true,
             modifier = Modifier.padding(top = 2.dp, bottom = 4.dp),
         )
     }
@@ -848,12 +810,12 @@ fun FloatingPillNav(
     onCallsClick: () -> Unit,
     onContactsClick: () -> Unit,
     modifier: Modifier = Modifier,
+    glass: GlassSource? = null,
+    docked: Boolean = false,
 ) {
     Row(
         modifier = modifier
-            .clip(CircleShape)
-            .background(PhoneColors.PillNavBg)
-            .border(1.dp, PhoneColors.PillNavBorder, CircleShape)
+            .glass(CircleShape, if (docked) PhoneGlass.dockedPill else PhoneGlass.floatingPill, glass)
             .padding(horizontal = 6.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -861,8 +823,7 @@ fun FloatingPillNav(
         val callsActive = currentTab == Tab.KEYPAD
         Row(
             modifier = Modifier
-                .clip(CircleShape)
-                .background(if (callsActive) PhoneColors.PillNavActive else Color.Transparent)
+                .then(if (callsActive) Modifier.glass(CircleShape, PhoneGlass.selected) else Modifier.clip(CircleShape))
                 .clickable(onClick = onCallsClick)
                 .padding(horizontal = 18.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -884,8 +845,7 @@ fun FloatingPillNav(
         val contactsActive = currentTab == Tab.CONTACTS
         Row(
             modifier = Modifier
-                .clip(CircleShape)
-                .background(if (contactsActive) PhoneColors.PillNavActive else Color.Transparent)
+                .then(if (contactsActive) Modifier.glass(CircleShape, PhoneGlass.selected) else Modifier.clip(CircleShape))
                 .clickable(onClick = onContactsClick)
                 .padding(horizontal = 18.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,

@@ -90,9 +90,9 @@ fun KeypadScreen(
         Box(
             Modifier
                 .fillMaxSize()
+                .glassSource(glass)
                 .background(PhoneColors.BgMain)
                 .ambientGlow()
-                .glassSource(glass)
         ) {
         // Main Calls Screen: Header + Calls List
         Column(Modifier.fillMaxSize().statusBarsPadding()) {

@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -98,7 +100,7 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
                 .ambientGlow()
                 .glassSource(glass)
         ) {
-        Column(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().statusBarsPadding()) {
             // Contacts Top Bar matching screenshots
             if (!vm.isSearchingContacts) {
                 Row(
@@ -348,6 +350,7 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
         Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
                 .padding(bottom = 20.dp, start = 16.dp, end = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),

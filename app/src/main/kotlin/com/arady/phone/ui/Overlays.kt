@@ -45,14 +45,14 @@ import com.arady.phone.t9.MatchType
 
 // "Smart Results Engine": the secret popup behind the Recents tab.
 @Composable
-fun PeekOverlay(vm: PhoneViewModel) {
+fun PeekOverlay(vm: PhoneViewModel, glass: GlassSource) {
     if (!vm.peekVisible) return
     BackHandler { vm.closePeek() }
 
     TapBox(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0x99000000))
+            .background(Color(0x66000000))
             .padding(24.dp),
         contentAlignment = Alignment.Center,
         onClick = { vm.closePeek() },
@@ -62,10 +62,7 @@ fun PeekOverlay(vm: PhoneViewModel) {
             modifier = Modifier
                 .widthIn(max = 330.dp)
                 .fillMaxWidth()
-                .shadow(16.dp, RoundedCornerShape(24.dp))
-                .clip(RoundedCornerShape(24.dp))
-                .background(PhoneColors.PeekCard)
-                .border(1.dp, PhoneColors.PeekCardBorder, RoundedCornerShape(24.dp))
+                .glass(RoundedCornerShape(28.dp), PhoneGlass.card, glass)
                 .padding(20.dp),
             onClick = {},
         ) {
@@ -92,8 +89,7 @@ fun PeekOverlay(vm: PhoneViewModel) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(PhoneColors.PeekItem)
+                                .glass(RoundedCornerShape(18.dp), PhoneGlass.item)
                                 .padding(16.dp),
                             contentAlignment = Alignment.Center,
                         ) {
@@ -106,11 +102,10 @@ fun PeekOverlay(vm: PhoneViewModel) {
                         }
                     }
                     for (item in vm.peekItems) {
-                        PressBox(
-                            normal = PhoneColors.PeekItem,
-                            pressed = PhoneColors.ActionCircleActive,
+                        GlassButton(
+                            shape = RoundedCornerShape(18.dp),
+                            style = PhoneGlass.item,
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
                             onClick = { vm.pickPeekWord(item.word) },
                         ) {
                             Row(
@@ -153,7 +148,7 @@ private fun Tag(label: String, color: Color) {
 
 // "Settings" dialog behind the three-dot menu with Light / Dark theme selector and API URL setup.
 @Composable
-fun SettingsOverlay(vm: PhoneViewModel) {
+fun SettingsOverlay(vm: PhoneViewModel, glass: GlassSource) {
     if (!vm.settingsVisible) return
     BackHandler { vm.closeSettings() }
 
@@ -162,7 +157,7 @@ fun SettingsOverlay(vm: PhoneViewModel) {
     TapBox(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0x99000000))
+            .background(Color(0x66000000))
             .imePadding()
             .padding(20.dp),
         contentAlignment = Alignment.Center,
@@ -172,10 +167,7 @@ fun SettingsOverlay(vm: PhoneViewModel) {
             modifier = Modifier
                 .widthIn(max = 360.dp)
                 .fillMaxWidth()
-                .shadow(16.dp, RoundedCornerShape(24.dp))
-                .clip(RoundedCornerShape(24.dp))
-                .background(PhoneColors.SettingsCard)
-                .border(1.dp, PhoneColors.cardBorder, RoundedCornerShape(24.dp))
+                .glass(RoundedCornerShape(28.dp), PhoneGlass.card, glass)
                 .padding(22.dp),
             onClick = {},
         ) {
@@ -200,8 +192,7 @@ fun SettingsOverlay(vm: PhoneViewModel) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(CircleShape)
-                        .background(PhoneColors.SearchBg)
+                        .glass(CircleShape, PhoneGlass.track)
                         .padding(4.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
@@ -211,8 +202,7 @@ fun SettingsOverlay(vm: PhoneViewModel) {
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .clip(CircleShape)
-                                .background(if (isSelected) PhoneColors.SurfaceElevated else Color.Transparent)
+                                .then(if (isSelected) Modifier.glass(CircleShape, PhoneGlass.selected) else Modifier.clip(CircleShape))
                                 .clickable { vm.applyThemeMode(modeKey) }
                                 .padding(vertical = 8.dp),
                             contentAlignment = Alignment.Center,
@@ -246,9 +236,7 @@ fun SettingsOverlay(vm: PhoneViewModel) {
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(PhoneColors.SearchBg)
-                        .border(1.dp, PhoneColors.cardBorder, RoundedCornerShape(12.dp))
+                        .glass(RoundedCornerShape(16.dp), PhoneGlass.track)
                         .padding(12.dp),
                     decorationBox = { inner ->
                         Box {
@@ -267,10 +255,9 @@ fun SettingsOverlay(vm: PhoneViewModel) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
                 ) {
-                    PressBox(
-                        normal = PhoneColors.ActionCircle,
-                        pressed = PhoneColors.ActionCircleActive,
+                    GlassButton(
                         shape = CircleShape,
+                        style = PhoneGlass.key,
                         onClick = { vm.closeSettings() },
                     ) {
                         Text(
@@ -281,9 +268,7 @@ fun SettingsOverlay(vm: PhoneViewModel) {
                             modifier = Modifier.padding(horizontal = 18.dp, vertical = 9.dp),
                         )
                     }
-                    PressBox(
-                        normal = PhoneColors.CallGreen,
-                        pressed = PhoneColors.CallGreenActive,
+                    GlossButton(
                         shape = CircleShape,
                         onClick = { vm.saveApiUrl(text) },
                     ) {

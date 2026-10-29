@@ -106,7 +106,7 @@ class GlassStyle(
     val borderTop: Color,
     val borderBottom: Color,
     // how much of fallbackBase to lay under the blur (heavier = text behind is harder to see)
-    val baseAlpha: Float = 0.78f,
+    val baseAlpha: Float = 1f,
 )
 
 private fun Color.boost(extra: Float): Color = copy(alpha = (alpha + extra).coerceAtMost(1f))

@@ -25,8 +25,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -90,11 +88,16 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
     val searchFocusRequester = remember { FocusRequester() }
     val scope = rememberCoroutineScope()
 
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(PhoneColors.BgMain)
-    ) {
+    val glass = rememberGlassSource()
+
+    Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(PhoneColors.BgMain)
+                .ambientGlow()
+                .glassSource(glass)
+        ) {
         Column(Modifier.fillMaxSize()) {
             // Contacts Top Bar matching screenshots
             if (!vm.isSearchingContacts) {
@@ -124,11 +127,10 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        PressBox(
-                            normal = Color.Transparent,
-                            pressed = PhoneColors.ActionCircle,
-                            modifier = Modifier.size(38.dp),
+                        GlassButton(
                             shape = CircleShape,
+                            style = PhoneGlass.circle,
+                            modifier = Modifier.size(38.dp),
                             onClick = {
                                 vm.isSearchingContacts = true
                                 scope.launch {
@@ -141,11 +143,10 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
                             SvgIcon(PhoneIcons.Search, PhoneColors.TextMain, 20.dp)
                         }
 
-                        PressBox(
-                            normal = Color.Transparent,
-                            pressed = PhoneColors.ActionCircle,
-                            modifier = Modifier.size(38.dp),
+                        GlassButton(
                             shape = CircleShape,
+                            style = PhoneGlass.circle,
+                            modifier = Modifier.size(38.dp),
                             onClick = { menuExpanded = true },
                         ) {
                             SvgIcon(PhoneIcons.ThreeDots, PhoneColors.TextMain, 20.dp)
@@ -163,8 +164,7 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
                     Row(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(CircleShape)
-                            .background(PhoneColors.SearchBg)
+                            .glass(CircleShape, PhoneGlass.track)
                             .padding(horizontal = 14.dp, vertical = 9.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -251,9 +251,7 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
                         textAlign = TextAlign.Center,
                     )
                     Spacer(Modifier.height(18.dp))
-                    PressBox(
-                        normal = PhoneColors.CallGreen,
-                        pressed = PhoneColors.CallGreenActive,
+                    GlossButton(
                         shape = CircleShape,
                         onClick = requestPermission,
                     ) {
@@ -343,56 +341,6 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
             }
         }
 
-        // Top Overflow Dropdown Menu with clean 20.dp rounded corners (No square edges!)
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 48.dp, end = 20.dp)
-        ) {
-            DropdownMenu(
-                expanded = menuExpanded,
-                onDismissRequest = { menuExpanded = false },
-                shape = RoundedCornerShape(20.dp),
-                containerColor = PhoneColors.SurfaceElevated,
-                shadowElevation = 8.dp,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .border(1.dp, PhoneColors.cardBorder, RoundedCornerShape(20.dp)),
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Settings", color = PhoneColors.TextMain, fontWeight = FontWeight.Medium) },
-                    onClick = {
-                        menuExpanded = false
-                        vm.openSettings()
-                    },
-                )
-                DropdownMenuItem(
-                    text = {
-                        val currentLabel = when (vm.themeMode) {
-                            "light" -> "Dark Mode"
-                            "dark" -> "System Mode"
-                            else -> "Light Mode"
-                        }
-                        Text("Switch to $currentLabel", color = PhoneColors.TextMain, fontWeight = FontWeight.Medium)
-                    },
-                    onClick = {
-                        menuExpanded = false
-                        val nextMode = when (vm.themeMode) {
-                            "light" -> "dark"
-                            "dark" -> "system"
-                            else -> "light"
-                        }
-                        vm.applyThemeMode(nextMode)
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text("Refresh Contacts", color = PhoneColors.TextSecondary) },
-                    onClick = {
-                        menuExpanded = false
-                        vm.reloadContacts()
-                    },
-                )
-            }
         }
 
         // Bottom Coordinated Floating Row (Side-by-side: Pill Nav + Green + FAB)
@@ -412,16 +360,13 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
                 onContactsClick = {
                     vm.tab = Tab.CONTACTS
                 },
+                glass = glass,
             )
 
             // Floating Action Button (+) on the right
-            PressBox(
-                normal = PhoneColors.CallGreen,
-                pressed = PhoneColors.CallGreenActive,
-                modifier = Modifier
-                    .size(56.dp)
-                    .shadow(6.dp, CircleShape),
+            GlossButton(
                 shape = CircleShape,
+                modifier = Modifier.size(56.dp),
                 onClick = {
                     try {
                         val intent = Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI)
@@ -431,6 +376,31 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
                 },
             ) {
                 SvgIcon(PhoneIcons.Plus, Color.White, 24.dp)
+            }
+        }
+
+        GlassMenu(expanded = menuExpanded, onDismiss = { menuExpanded = false }, glass = glass) {
+            GlassMenuItem("Settings") {
+                menuExpanded = false
+                vm.openSettings()
+            }
+            val currentLabel = when (vm.themeMode) {
+                "light" -> "Dark Mode"
+                "dark" -> "System Mode"
+                else -> "Light Mode"
+            }
+            GlassMenuItem("Switch to $currentLabel") {
+                menuExpanded = false
+                val nextMode = when (vm.themeMode) {
+                    "light" -> "dark"
+                    "dark" -> "system"
+                    else -> "light"
+                }
+                vm.applyThemeMode(nextMode)
+            }
+            GlassMenuItem("Refresh Contacts", color = PhoneColors.TextSecondary) {
+                menuExpanded = false
+                vm.reloadContacts()
             }
         }
     }

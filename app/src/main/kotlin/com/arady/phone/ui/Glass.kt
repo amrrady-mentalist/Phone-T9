@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -104,6 +105,8 @@ class GlassStyle(
     val sheen: Color,
     val borderTop: Color,
     val borderBottom: Color,
+    // how much of fallbackBase to lay under the blur (heavier = text behind is harder to see)
+    val baseAlpha: Float = 0.78f,
 )
 
 private fun Color.boost(extra: Float): Color = copy(alpha = (alpha + extra).coerceAtMost(1f))
@@ -116,6 +119,7 @@ fun GlassStyle.pressed(): GlassStyle = GlassStyle(
     sheen = sheen.boost(0.08f),
     borderTop = borderTop,
     borderBottom = borderBottom,
+    baseAlpha = baseAlpha,
 )
 
 // A glass surface. Pass a GlassSource to blur what is behind it; pass null for a plain tinted glass
@@ -144,6 +148,8 @@ fun Modifier.glass(
             if (source != null) {
                 val w = size.width.roundToInt()
                 val h = size.height.roundToInt()
+                // Base layer: hides the sharp content behind the panel even if the blur is unavailable.
+                drawRect(style.fallbackBase.copy(alpha = if (canBlur) style.baseAlpha else 1f))
                 if (canBlur && w > 0 && h > 0) {
                     blurLayer.record(this, layoutDirection, IntSize(w, h)) {
                         translate(left = source.origin.x - pos.x, top = source.origin.y - pos.y) {
@@ -151,8 +157,6 @@ fun Modifier.glass(
                         }
                     }
                     drawLayer(blurLayer)
-                } else {
-                    drawRect(style.fallbackBase)
                 }
             }
             drawRect(Brush.verticalGradient(listOf(style.tintTop, style.tintBottom)))
@@ -305,6 +309,7 @@ fun GlassMenu(
             Column(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
+                    .statusBarsPadding()
                     .padding(top = 52.dp, end = 20.dp)
                     .widthIn(min = 210.dp, max = 270.dp)
                     .glass(RoundedCornerShape(26.dp), PhoneGlass.card, glass)
@@ -350,7 +355,7 @@ private fun black(a: Float) = Color.Black.copy(alpha = a)
 
 private object DarkGlass {
     val sheet = GlassStyle(
-        blur = 36.dp,
+        blur = 64.dp,
         tintTop = Color(0xFF3D4A8F).copy(alpha = 0.42f),
         tintBottom = Color(0xFF141A45).copy(alpha = 0.60f),
         fallbackBase = Color(0xFF0F1230),
@@ -359,7 +364,7 @@ private object DarkGlass {
         borderBottom = white(0.05f),
     )
     val floatingPill = GlassStyle(
-        blur = 30.dp,
+        blur = 52.dp,
         tintTop = Color(0xFF4A58A8).copy(alpha = 0.50f),
         tintBottom = Color(0xFF1B2255).copy(alpha = 0.62f),
         fallbackBase = Color(0xFF161A40),
@@ -413,7 +418,7 @@ private object DarkGlass {
         borderBottom = white(0.10f),
     )
     val card = GlassStyle(
-        blur = 32.dp,
+        blur = 60.dp,
         tintTop = Color(0xFF3A4590).copy(alpha = 0.55f),
         tintBottom = Color(0xFF161B48).copy(alpha = 0.70f),
         fallbackBase = Color(0xFF12163A),
@@ -434,7 +439,7 @@ private object DarkGlass {
 
 private object LightGlass {
     val sheet = GlassStyle(
-        blur = 36.dp,
+        blur = 64.dp,
         tintTop = white(0.68f),
         tintBottom = Color(0xFFF1EFFA).copy(alpha = 0.60f),
         fallbackBase = Color(0xFFF4F3FA),
@@ -443,7 +448,7 @@ private object LightGlass {
         borderBottom = black(0.06f),
     )
     val floatingPill = GlassStyle(
-        blur = 30.dp,
+        blur = 52.dp,
         tintTop = white(0.62f),
         tintBottom = white(0.50f),
         fallbackBase = Color(0xFFF4F3FA),
@@ -497,7 +502,7 @@ private object LightGlass {
         borderBottom = black(0.06f),
     )
     val card = GlassStyle(
-        blur = 32.dp,
+        blur = 60.dp,
         tintTop = white(0.80f),
         tintBottom = white(0.68f),
         fallbackBase = Color(0xFFFAFAFD),

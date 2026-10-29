@@ -89,6 +89,7 @@ private fun DetailsContent(vm: PhoneViewModel, contact: Contact) {
             .fillMaxSize()
             .offset { IntOffset(dragX.roundToInt(), 0) }
             .background(PhoneColors.DetailsBg)
+            .ambientGlow()
             .pointerInput(Unit) {
                 var startX = 0f
                 var valid = false
@@ -248,9 +249,7 @@ private fun DetailsContent(vm: PhoneViewModel, contact: Contact) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(PhoneColors.DetailsCard)
-                        .border(1.dp, PhoneColors.DetailsCardBorder, RoundedCornerShape(20.dp))
+                        .glass(RoundedCornerShape(26.dp), PhoneGlass.card)
                         .padding(horizontal = 18.dp, vertical = 12.dp),
                 ) {
                     Text(
@@ -281,11 +280,10 @@ private fun DetailsContent(vm: PhoneViewModel, contact: Contact) {
                                 )
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                PressBox(
-                                    normal = PhoneColors.ActionCircle,
-                                    pressed = PhoneColors.ActionCircleActive,
-                                    modifier = Modifier.size(38.dp),
+                                GlassButton(
                                     shape = CircleShape,
+                                    style = PhoneGlass.circle,
+                                    modifier = Modifier.size(38.dp),
                                     onClick = {
                                         vm.trackAction("call")
                                         launchSafely(context, Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
@@ -293,11 +291,10 @@ private fun DetailsContent(vm: PhoneViewModel, contact: Contact) {
                                 ) {
                                     SvgIcon(PhoneIcons.Call, PhoneColors.CallGreen, 18.dp)
                                 }
-                                PressBox(
-                                    normal = PhoneColors.ActionCircle,
-                                    pressed = PhoneColors.ActionCircleActive,
-                                    modifier = Modifier.size(38.dp),
+                                GlassButton(
                                     shape = CircleShape,
+                                    style = PhoneGlass.circle,
+                                    modifier = Modifier.size(38.dp),
                                     onClick = {
                                         vm.trackAction("text")
                                         launchSafely(context, Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$phone")))
@@ -322,11 +319,10 @@ private fun ActionCircleBtn(icon: List<IconPart>, label: String, onClick: () -> 
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        PressBox(
-            normal = PhoneColors.ActionCircle,
-            pressed = PhoneColors.ActionCircleActive,
-            modifier = Modifier.size(52.dp),
+        GlassButton(
             shape = CircleShape,
+            style = PhoneGlass.circle,
+            modifier = Modifier.size(52.dp),
             onClick = onClick,
         ) {
             SvgIcon(icon, PhoneColors.TextMain, 22.dp)

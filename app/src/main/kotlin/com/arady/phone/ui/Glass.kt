@@ -136,10 +136,7 @@ fun Modifier.glass(
     val canBlur = source != null && blurPx > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     var pos by remember { mutableStateOf(Offset.Zero) }
 
-    if (canBlur) {
-        val effect = remember(blurPx) { BlurEffect(blurPx, blurPx, TileMode.Clamp) }
-        SideEffect { blurLayer.renderEffect = effect }
-    }
+    val effect = remember(blurPx) { BlurEffect(blurPx, blurPx, TileMode.Clamp) }
 
     return this
         .onGloballyPositioned { pos = it.positionInRoot() }
@@ -151,6 +148,7 @@ fun Modifier.glass(
                 // Base layer: hides the sharp content behind the panel even if the blur is unavailable.
                 drawRect(style.fallbackBase.copy(alpha = if (canBlur) style.baseAlpha else 1f))
                 if (canBlur && w > 0 && h > 0) {
+                    blurLayer.renderEffect = effect
                     blurLayer.record(this, layoutDirection, IntSize(w, h)) {
                         translate(left = source.origin.x - pos.x, top = source.origin.y - pos.y) {
                             drawLayer(source.layer)
@@ -259,29 +257,32 @@ fun GlossButton(
     )
 }
 
-// Soft colour glows behind everything so the glass has something to refract (dark: indigo/violet).
+// Colour glows behind everything so the glass has something to refract (dark: indigo / violet / blue).
 @Composable
 fun Modifier.ambientGlow(): Modifier {
     val dark = PhoneColors.isDark
     return this.drawBehind {
         val w = size.width
         val h = size.height
-        val first = if (dark) Color(0xFF3B4CCA).copy(alpha = 0.22f) else Color(0xFFB9C3FF).copy(alpha = 0.40f)
-        val second = if (dark) Color(0xFF7A3FD0).copy(alpha = 0.15f) else Color(0xFFE6C9FF).copy(alpha = 0.32f)
-        drawRect(
-            Brush.radialGradient(
-                colors = listOf(first, Color.Transparent),
-                center = Offset(w * 0.15f, h * 0.10f),
-                radius = w * 0.95f,
-            ),
-        )
-        drawRect(
-            Brush.radialGradient(
-                colors = listOf(second, Color.Transparent),
-                center = Offset(w * 0.95f, h * 0.82f),
-                radius = w * 0.95f,
-            ),
-        )
+        fun blob(color: Color, cx: Float, cy: Float, r: Float) {
+            drawRect(
+                Brush.radialGradient(
+                    colors = listOf(color, Color.Transparent),
+                    center = Offset(w * cx, h * cy),
+                    radius = w * r,
+                ),
+            )
+        }
+        if (dark) {
+            blob(Color(0xFF4F62F0).copy(alpha = 0.40f), 0.10f, 0.12f, 0.95f)
+            blob(Color(0xFF9B50F0).copy(alpha = 0.30f), 0.95f, 0.45f, 0.80f)
+            blob(Color(0xFF2F86FF).copy(alpha = 0.26f), 0.20f, 0.88f, 0.90f)
+            blob(Color(0xFFE15AB5).copy(alpha = 0.14f), 0.85f, 0.95f, 0.60f)
+        } else {
+            blob(Color(0xFFB9C3FF).copy(alpha = 0.55f), 0.10f, 0.12f, 0.95f)
+            blob(Color(0xFFE6C9FF).copy(alpha = 0.45f), 0.95f, 0.45f, 0.80f)
+            blob(Color(0xFFBFE3FF).copy(alpha = 0.45f), 0.20f, 0.88f, 0.90f)
+        }
     }
 }
 
@@ -356,8 +357,8 @@ private fun black(a: Float) = Color.Black.copy(alpha = a)
 private object DarkGlass {
     val sheet = GlassStyle(
         blur = 64.dp,
-        tintTop = Color(0xFF3D4A8F).copy(alpha = 0.42f),
-        tintBottom = Color(0xFF141A45).copy(alpha = 0.60f),
+        tintTop = Color(0xFF7E8DFF).copy(alpha = 0.26f),
+        tintBottom = Color(0xFF2A3380).copy(alpha = 0.34f),
         fallbackBase = Color(0xFF0F1230),
         sheen = white(0.10f),
         borderTop = white(0.32f),
@@ -365,8 +366,8 @@ private object DarkGlass {
     )
     val floatingPill = GlassStyle(
         blur = 52.dp,
-        tintTop = Color(0xFF4A58A8).copy(alpha = 0.50f),
-        tintBottom = Color(0xFF1B2255).copy(alpha = 0.62f),
+        tintTop = Color(0xFF8C9BFF).copy(alpha = 0.30f),
+        tintBottom = Color(0xFF2F3A90).copy(alpha = 0.38f),
         fallbackBase = Color(0xFF161A40),
         sheen = white(0.12f),
         borderTop = white(0.38f),
@@ -419,8 +420,8 @@ private object DarkGlass {
     )
     val card = GlassStyle(
         blur = 60.dp,
-        tintTop = Color(0xFF3A4590).copy(alpha = 0.55f),
-        tintBottom = Color(0xFF161B48).copy(alpha = 0.70f),
+        tintTop = Color(0xFF7686F5).copy(alpha = 0.30f),
+        tintBottom = Color(0xFF232C78).copy(alpha = 0.42f),
         fallbackBase = Color(0xFF12163A),
         sheen = white(0.08f),
         borderTop = white(0.30f),

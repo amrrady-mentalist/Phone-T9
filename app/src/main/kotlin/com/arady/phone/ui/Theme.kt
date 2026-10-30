@@ -71,7 +71,7 @@ val LightPhoneColors = PhoneColorScheme(
 
 val DarkPhoneColors = PhoneColorScheme(
     isDark = true,
-    bgMain = Color(0xFF08090B),
+    bgMain = Color(0xFF000000),
     surface = Color(0xFF121418),
     surfaceElevated = Color(0xFF16181F),
     keypadBg = Color(0xFF16181E),

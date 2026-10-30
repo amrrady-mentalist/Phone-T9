@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -354,7 +355,8 @@ private fun CallsTopBar(
                         modifier = Modifier
                             .then(if (allSelected) Modifier.glass(CircleShape, PhoneGlass.selected) else Modifier.clip(CircleShape))
                             .clickable { vm.callFilter = CallFilter.ALL }
-                            .padding(horizontal = 14.dp, vertical = 4.dp),
+                            .width(62.dp)
+                            .fillMaxHeight(),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
@@ -370,7 +372,8 @@ private fun CallsTopBar(
                         modifier = Modifier
                             .then(if (missedSelected) Modifier.glass(CircleShape, PhoneGlass.selected) else Modifier.clip(CircleShape))
                             .clickable { vm.callFilter = CallFilter.MISSED }
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                            .width(62.dp)
+                            .fillMaxHeight(),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(

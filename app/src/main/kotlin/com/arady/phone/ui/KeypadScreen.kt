@@ -154,7 +154,8 @@ fun KeypadScreen(
                         )
                     }
                 }
-            } else {
+            }
+            run {
                 // Actual Calls List
                 val filteredCalls = remember(vm.recentCalls, vm.callFilter, vm.callsSearch) {
                     val q = vm.callsSearch.trim().lowercase()
@@ -206,7 +207,7 @@ fun KeypadScreen(
                                 onInfoClick = {
                                     val contact = vm.contacts.firstOrNull { it.phones.any { p -> p.contains(call.number) } }
                                         ?: Contact(
-                                            id = call.id.toLongOrNull() ?: 0L,
+                                            id = call.id.removePrefix("sys-").toLongOrNull() ?: 0L,
                                             lookupKey = call.number,
                                             name = call.name,
                                             phones = listOf(call.number),

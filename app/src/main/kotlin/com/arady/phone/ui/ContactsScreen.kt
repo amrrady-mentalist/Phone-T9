@@ -351,9 +351,9 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
-                .padding(bottom = 20.dp, start = 16.dp, end = 16.dp),
+                .padding(bottom = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             FloatingPillNav(
                 currentTab = vm.tab,
@@ -369,7 +369,7 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
             // Floating Action Button (+) on the right
             GlossButton(
                 shape = CircleShape,
-                modifier = Modifier.size(56.dp),
+                modifier = Modifier.size(52.dp),
                 onClick = {
                     try {
                         val intent = Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI)
@@ -378,7 +378,7 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
                     }
                 },
             ) {
-                SvgIcon(PhoneIcons.Plus, Color.White, 24.dp)
+                SvgIcon(PhoneIcons.Plus, Color.White, 22.dp)
             }
         }
 

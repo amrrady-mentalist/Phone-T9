@@ -23,32 +23,40 @@ class CallLogRepository(private val resolver: ContentResolver) {
         val todayYear = nowCal.get(Calendar.YEAR)
         val todayDay = nowCal.get(Calendar.DAY_OF_YEAR)
 
-        // The "... LIMIT n" sort-order trick is rejected on newer Android versions, so use query args.
-        val args = Bundle().apply {
-            putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, arrayOf(CallLog.Calls.DATE))
-            putInt(ContentResolver.QUERY_ARG_SORT_DIRECTION, ContentResolver.QUERY_SORT_DIRECTION_DESCENDING)
-            putInt(ContentResolver.QUERY_ARG_LIMIT, 300)
-        }
         val cursor = try {
-            resolver.query(CallLog.Calls.CONTENT_URI, null, args, null)
-        } catch (_: SecurityException) {
-            null
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                val args = Bundle().apply {
+                    putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, arrayOf(CallLog.Calls.DATE))
+                    putInt(ContentResolver.QUERY_ARG_SORT_DIRECTION, ContentResolver.QUERY_SORT_DIRECTION_DESCENDING)
+                    putInt(ContentResolver.QUERY_ARG_LIMIT, 300)
+                }
+                resolver.query(CallLog.Calls.CONTENT_URI, null, args, null)
+            } else {
+                resolver.query(CallLog.Calls.CONTENT_URI, null, null, null, "${CallLog.Calls.DATE} DESC")
+            }
+        } catch (_: Exception) {
+            try {
+                resolver.query(CallLog.Calls.CONTENT_URI, null, null, null, "${CallLog.Calls.DATE} DESC")
+            } catch (_: Exception) {
+                null
+            }
         } ?: return emptyList()
 
         cursor.use {
-            val idCol = it.getColumnIndexOrThrow(CallLog.Calls._ID)
-            val numCol = it.getColumnIndexOrThrow(CallLog.Calls.NUMBER)
+            val idCol = it.getColumnIndex(CallLog.Calls._ID)
+            val numCol = it.getColumnIndex(CallLog.Calls.NUMBER)
             val nameCol = it.getColumnIndex(CallLog.Calls.CACHED_NAME)
-            val typeCol = it.getColumnIndexOrThrow(CallLog.Calls.TYPE)
-            val dateCol = it.getColumnIndexOrThrow(CallLog.Calls.DATE)
+            val typeCol = it.getColumnIndex(CallLog.Calls.TYPE)
+            val dateCol = it.getColumnIndex(CallLog.Calls.DATE)
             val locCol = it.getColumnIndex(CallLog.Calls.GEOCODED_LOCATION)
 
+            var fallbackId = 0L
             while (it.moveToNext()) {
-                val id = it.getLong(idCol).toString()
-                val rawNumber = it.getString(numCol).orEmpty()
+                val id = if (idCol >= 0) it.getLong(idCol).toString() else (++fallbackId).toString()
+                val rawNumber = if (numCol >= 0) it.getString(numCol).orEmpty() else ""
                 val cachedName = if (nameCol >= 0) it.getString(nameCol) else null
-                val rawType = it.getInt(typeCol)
-                val epochMillis = it.getLong(dateCol)
+                val rawType = if (typeCol >= 0) it.getInt(typeCol) else CallLog.Calls.INCOMING_TYPE
+                val epochMillis = if (dateCol >= 0) it.getLong(dateCol) else System.currentTimeMillis()
                 val location = (if (locCol >= 0) it.getString(locCol) else null) ?: "Unknown location"
 
                 val callType = when (rawType) {

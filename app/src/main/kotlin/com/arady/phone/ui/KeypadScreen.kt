@@ -40,6 +40,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
@@ -178,8 +179,11 @@ fun KeypadScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
-                            .padding(horizontal = 24.dp, vertical = 40.dp),
-                        contentAlignment = Alignment.Center,
+                            .padding(
+                                horizontal = 24.dp,
+                                vertical = if (vm.keypadVisible) 24.dp else 40.dp,
+                            ),
+                        contentAlignment = if (vm.keypadVisible) Alignment.TopCenter else Alignment.Center,
                     ) {
                         Text(
                             text = if (vm.callsSearch.isNotEmpty()) {
@@ -192,6 +196,7 @@ fun KeypadScreen(
                             color = PhoneColors.TextSecondary,
                             fontSize = 15.sp,
                             textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = if (vm.keypadVisible) 28.dp else 0.dp),
                         )
                     }
                 } else {
@@ -199,7 +204,14 @@ fun KeypadScreen(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
+                            .padding(horizontal = 16.dp)
+                            .then(
+                                if (vm.keypadVisible) {
+                                    Modifier.blur(8.dp)
+                                } else {
+                                    Modifier
+                                }
+                            ),
                     ) {
                         items(filteredCalls, key = { it.id }) { call ->
                             CallItemRow(
@@ -238,11 +250,11 @@ fun KeypadScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
-                .padding(bottom = 20.dp, start = 16.dp, end = 16.dp),
+                .padding(bottom = 16.dp),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 FloatingPillNav(
                     currentTab = vm.tab,
@@ -261,10 +273,10 @@ fun KeypadScreen(
                 // Dialpad FAB
                 GlossButton(
                     shape = CircleShape,
-                    modifier = Modifier.size(56.dp),
+                    modifier = Modifier.size(52.dp),
                     onClick = { vm.keypadVisible = true },
                 ) {
-                    SvgIcon(PhoneIcons.DialpadGrid, Color.White, 24.dp)
+                    SvgIcon(PhoneIcons.DialpadGrid, Color.White, 22.dp)
                 }
             }
         }
@@ -824,7 +836,7 @@ fun FloatingPillNav(
     Row(
         modifier = modifier
             .glass(CircleShape, if (docked) PhoneGlass.dockedPill else PhoneGlass.floatingPill, glass)
-            .padding(horizontal = 6.dp, vertical = 4.dp),
+            .padding(horizontal = 4.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -833,20 +845,20 @@ fun FloatingPillNav(
             modifier = Modifier
                 .then(if (callsActive) Modifier.glass(CircleShape, PhoneGlass.selected) else Modifier.clip(CircleShape))
                 .clickable(onClick = onCallsClick)
-                .padding(horizontal = 18.dp, vertical = 7.dp),
+                .padding(horizontal = 14.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             SvgIcon(
                 PhoneIcons.Call,
-                if (callsActive) PhoneColors.TextMain else PhoneColors.TextSecondary,
-                16.dp,
+                if (callsActive) Color.White else (if (PhoneColors.isDark) Color(0xFFA0A8C0) else Color(0xFF6B7280)),
+                15.dp,
             )
             Text(
                 text = "Calls",
-                color = if (callsActive) PhoneColors.TextMain else PhoneColors.TextSecondary,
+                color = if (callsActive) Color.White else (if (PhoneColors.isDark) Color(0xFFA0A8C0) else Color(0xFF6B7280)),
                 fontSize = 12.sp,
-                fontWeight = if (callsActive) FontWeight.SemiBold else FontWeight.Normal,
+                fontWeight = if (callsActive) FontWeight.SemiBold else FontWeight.Medium,
             )
         }
 
@@ -855,20 +867,20 @@ fun FloatingPillNav(
             modifier = Modifier
                 .then(if (contactsActive) Modifier.glass(CircleShape, PhoneGlass.selected) else Modifier.clip(CircleShape))
                 .clickable(onClick = onContactsClick)
-                .padding(horizontal = 18.dp, vertical = 7.dp),
+                .padding(horizontal = 14.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             SvgIcon(
                 PhoneIcons.People,
-                if (contactsActive) PhoneColors.TextMain else PhoneColors.TextSecondary,
-                16.dp,
+                if (contactsActive) Color.White else (if (PhoneColors.isDark) Color(0xFFA0A8C0) else Color(0xFF6B7280)),
+                15.dp,
             )
             Text(
                 text = "Contacts",
-                color = if (contactsActive) PhoneColors.TextMain else PhoneColors.TextSecondary,
+                color = if (contactsActive) Color.White else (if (PhoneColors.isDark) Color(0xFFA0A8C0) else Color(0xFF6B7280)),
                 fontSize = 12.sp,
-                fontWeight = if (contactsActive) FontWeight.SemiBold else FontWeight.Normal,
+                fontWeight = if (contactsActive) FontWeight.SemiBold else FontWeight.Medium,
             )
         }
     }

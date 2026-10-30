@@ -42,8 +42,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.addOutline
 import androidx.compose.ui.graphics.drawscope.*
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.layer.*
@@ -105,9 +107,9 @@ class GlassStyle(
     val sheen: Color,
     val borderTop: Color,
     val borderBottom: Color,
-    // how much of fallbackBase to lay under the blur (heavier = text behind is harder to see)
-    val baseAlpha: Float = 1f,
-    // soft coloured light inside the panel (what makes it read as glass rather than a flat tint)
+    // how much of fallbackBase to lay under the blur (translucent so underlying content is visible)
+    val baseAlpha: Float = 0.45f,
+    // soft coloured light inside the panel (creates physical refractive liquid glass depth)
     val glow: Float = 0f,
 )
 
@@ -115,18 +117,17 @@ private fun Color.boost(extra: Float): Color = copy(alpha = (alpha + extra).coer
 
 fun GlassStyle.pressed(): GlassStyle = GlassStyle(
     blur = blur,
-    tintTop = tintTop.boost(0.14f),
-    tintBottom = tintBottom.boost(0.14f),
+    tintTop = tintTop.boost(0.18f),
+    tintBottom = tintBottom.boost(0.18f),
     fallbackBase = fallbackBase,
-    sheen = sheen.boost(0.08f),
-    borderTop = borderTop,
+    sheen = sheen.boost(0.12f),
+    borderTop = borderTop.boost(0.15f),
     borderBottom = borderBottom,
-    baseAlpha = baseAlpha,
+    baseAlpha = (baseAlpha + 0.10f).coerceAtMost(1f),
     glow = glow,
 )
 
-// A glass surface. Pass a GlassSource to blur what is behind it; pass null for a plain tinted glass
-// surface (used for small things that sit on top of another glass panel).
+// A glass surface. Blurs what is behind it when source is passed; otherwise renders a luminous glass panel.
 @Composable
 fun Modifier.glass(
     shape: Shape,
@@ -143,48 +144,73 @@ fun Modifier.glass(
 
     return this
         .onGloballyPositioned { pos = it.positionInRoot() }
-        .clip(shape)
-        .drawBehind {
-            if (source != null) {
-                val w = size.width.roundToInt()
-                val h = size.height.roundToInt()
-                // Base layer: hides the sharp content behind the panel even if the blur is unavailable.
-                drawRect(style.fallbackBase.copy(alpha = if (canBlur) style.baseAlpha else 1f))
-                if (canBlur && w > 0 && h > 0) {
-                    blurLayer.renderEffect = effect
-                    blurLayer.record(this, layoutDirection, IntSize(w, h)) {
-                        translate(left = source.origin.x - pos.x, top = source.origin.y - pos.y) {
-                            drawLayer(source.layer)
+        .graphicsLayer {
+            this.shape = shape
+            this.clip = true
+        }
+        .drawWithContent {
+            val outline = shape.createOutline(size, layoutDirection, this)
+            val path = Path().apply { addOutline(outline) }
+
+            // Everything is clipped strictly inside the shape to prevent square corners leaking
+            clipPath(path) {
+                // 1. Blurred background content (draw first so it sits beneath the glass tints)
+                if (source != null) {
+                    val w = size.width.roundToInt()
+                    val h = size.height.roundToInt()
+                    if (canBlur && w > 0 && h > 0) {
+                        blurLayer.renderEffect = effect
+                        blurLayer.record(this, layoutDirection, IntSize(w, h)) {
+                            translate(left = source.origin.x - pos.x, top = source.origin.y - pos.y) {
+                                drawLayer(source.layer)
+                            }
                         }
+                        drawLayer(blurLayer)
                     }
-                    drawLayer(blurLayer)
+                    // Translucent base filter over blurred layer
+                    if (style.fallbackBase != Color.Transparent) {
+                        val effectiveAlpha = if (canBlur) style.baseAlpha else (style.baseAlpha + 0.04f).coerceAtMost(0.96f)
+                        drawRect(style.fallbackBase.copy(alpha = effectiveAlpha))
+                    }
+                } else if (style.fallbackBase != Color.Transparent) {
+                    drawRect(style.fallbackBase.copy(alpha = style.baseAlpha))
+                }
+
+                // 2. Translucent Glass Tint
+                drawRect(Brush.verticalGradient(listOf(style.tintTop, style.tintBottom)))
+
+                // 3. Curvature Top Sheen (clean specular optical reflection right at the top curved lip)
+                val sheenHeight = minOf(size.height * 0.16f, with(density) { 24.dp.toPx() })
+                if (sheenHeight > 0f && style.sheen.alpha > 0f) {
+                    drawRect(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                style.sheen,
+                                style.sheen.copy(alpha = style.sheen.alpha * 0.25f),
+                                Color.Transparent,
+                            ),
+                            startY = 0f,
+                            endY = sheenHeight,
+                        ),
+                    )
                 }
             }
-            drawRect(Brush.verticalGradient(listOf(style.tintTop, style.tintBottom)))
-            if (style.glow > 0f) {
-                val g1 = Color(0xFF8C9BFF).copy(alpha = style.glow)
-                val g2 = Color(0xFFB070FF).copy(alpha = style.glow * 0.8f)
-                val g3 = Color(0xFF4FA0FF).copy(alpha = style.glow * 0.7f)
-                drawRect(Brush.radialGradient(listOf(g1, Color.Transparent), center = Offset(size.width * 0.12f, size.height * 0.15f), radius = size.width * 0.55f))
-                drawRect(Brush.radialGradient(listOf(g2, Color.Transparent), center = Offset(size.width * 0.92f, size.height * 0.55f), radius = size.width * 0.5f))
-                drawRect(Brush.radialGradient(listOf(g3, Color.Transparent), center = Offset(size.width * 0.3f, size.height * 0.95f), radius = size.width * 0.5f))
-            }
-            drawRect(
-                Brush.verticalGradient(
-                    colors = listOf(style.sheen, Color.Transparent),
-                    startY = 0f,
-                    endY = size.height * 0.5f,
-                ),
-            )
+
+            // Draw composable children content
+            drawContent()
         }
         .border(
-            1.dp,
-            Brush.linearGradient(listOf(style.borderTop, style.borderBottom)),
+            1.2.dp,
+            Brush.linearGradient(
+                colors = listOf(style.borderTop, style.borderTop.copy(alpha = style.borderTop.alpha * 0.5f), style.borderBottom),
+                start = Offset(0f, 0f),
+                end = Offset(0f, Float.POSITIVE_INFINITY),
+            ),
             shape,
         )
 }
 
-// Glass button with press feedback (slight shrink + brighter tint).
+// Glass button with physical contact shadow and press feedback (slight shrink + brighter tint).
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun GlassButton(
@@ -203,12 +229,21 @@ fun GlassButton(
         animationSpec = tween(90),
         label = "glassPress",
     )
+    val shadowAmbient = if (PhoneColors.isDark) Color.Black.copy(alpha = 0.50f) else Color(0x18000000)
+    val shadowSpot = if (PhoneColors.isDark) Color.Black.copy(alpha = 0.70f) else Color(0x24000000)
+
     Box(
         modifier = modifier
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
             }
+            .shadow(
+                elevation = if (isPressed) 1.dp else 3.5.dp,
+                shape = shape,
+                ambientColor = shadowAmbient,
+                spotColor = shadowSpot,
+            )
             .glass(shape, if (isPressed) style.pressed() else style, source)
             .combinedClickable(
                 interactionSource = interaction,
@@ -268,34 +303,12 @@ fun GlossButton(
     )
 }
 
-// Colour glows behind everything so the glass has something to refract (dark: indigo / violet / blue).
+// Ambient background modifier: keeps clean neutral canvas for frosted glass
 @Composable
-fun Modifier.ambientGlow(): Modifier {
-    val dark = PhoneColors.isDark
-    return this.drawBehind {
-        val w = size.width
-        val h = size.height
-        fun blob(color: Color, cx: Float, cy: Float, r: Float) {
-            drawRect(
-                Brush.radialGradient(
-                    colors = listOf(color, Color.Transparent),
-                    center = Offset(w * cx, h * cy),
-                    radius = w * r,
-                ),
-            )
-        }
-        if (dark) {
-            // dark mode stays pitch black; the glass panels carry their own coloured light
-        } else {
-            blob(Color(0xFFB9C3FF).copy(alpha = 0.55f), 0.10f, 0.12f, 0.95f)
-            blob(Color(0xFFE6C9FF).copy(alpha = 0.45f), 0.95f, 0.45f, 0.80f)
-            blob(Color(0xFFBFE3FF).copy(alpha = 0.45f), 0.20f, 0.88f, 0.90f)
-        }
-    }
-}
+fun Modifier.ambientGlow(): Modifier = this
 
-// Overflow menu rendered as a glass card (replaces the system DropdownMenu, which is a separate window
-// and cannot blur the screen behind it). Place it LAST inside the screen's root Box so it sits on top.
+// Overflow menu rendered as a pure frosted glass card.
+// Place it LAST inside the screen's root Box so it blurs content beneath it.
 @Composable
 fun GlassMenu(
     expanded: Boolean,
@@ -321,9 +334,9 @@ fun GlassMenu(
                     .statusBarsPadding()
                     .padding(top = 52.dp, end = 20.dp)
                     .widthIn(min = 210.dp, max = 270.dp)
-                    .glass(RoundedCornerShape(26.dp), PhoneGlass.card, glass)
+                    .glass(RoundedCornerShape(22.dp), PhoneGlass.menu, glass)
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
-                    .padding(8.dp),
+                    .padding(6.dp),
                 content = content,
             )
         }
@@ -338,9 +351,9 @@ fun GlassMenuItem(
 ) {
     PressBox(
         normal = Color.Transparent,
-        pressed = if (PhoneColors.isDark) Color(0x33A9B6FF) else Color(0x14000000),
+        pressed = if (PhoneColors.isDark) Color(0x22FFFFFF) else Color(0x12000000),
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         contentAlignment = Alignment.CenterStart,
         onClick = onClick,
     ) {
@@ -355,8 +368,8 @@ fun GlassMenuItem(
 }
 
 // ---------------------------------------------------------------------------------------------
-// The two glass palettes. Dark mode follows the ColorOS 17 screenshots: periwinkle / indigo glass
-// with a bright upper-left edge light. Tweak the numbers here to taste.
+// The two glass palettes. Dark mode follows the ColorOS Liquid Glass: translucent slate/indigo
+// with electric purple bottom-left caustic refraction and bright specular rim highlights.
 // ---------------------------------------------------------------------------------------------
 
 private fun white(a: Float) = Color.White.copy(alpha = a)
@@ -364,175 +377,215 @@ private fun black(a: Float) = Color.Black.copy(alpha = a)
 
 private object DarkGlass {
     val sheet = GlassStyle(
-        blur = 64.dp,
-        tintTop = Color(0xFF7E8DFF).copy(alpha = 0.26f),
-        tintBottom = Color(0xFF2A3380).copy(alpha = 0.34f),
-        fallbackBase = Color(0xFF0F1230),
-        sheen = white(0.10f),
-        borderTop = white(0.32f),
-        borderBottom = white(0.05f),
-        glow = 0.32f,
+        blur = 40.dp,
+        tintTop = white(0.10f),
+        tintBottom = white(0.03f),
+        fallbackBase = Color(0xFF10131B),
+        sheen = white(0.24f),
+        borderTop = white(0.38f),
+        borderBottom = white(0.08f),
+        baseAlpha = 0.92f,
+        glow = 0f,
     )
     val floatingPill = GlassStyle(
-        blur = 52.dp,
-        tintTop = Color(0xFF8C9BFF).copy(alpha = 0.30f),
-        tintBottom = Color(0xFF2F3A90).copy(alpha = 0.38f),
-        fallbackBase = Color(0xFF161A40),
-        sheen = white(0.12f),
+        blur = 36.dp,
+        tintTop = white(0.15f),
+        tintBottom = white(0.06f),
+        fallbackBase = Color(0xFF131722),
+        sheen = white(0.18f),
         borderTop = white(0.38f),
-        borderBottom = white(0.06f),
-        glow = 0.30f,
+        borderBottom = white(0.08f),
+        baseAlpha = 0.85f,
+        glow = 0f,
     )
     val dockedPill = GlassStyle(
         blur = 0.dp,
-        tintTop = Color(0xFF8C9BFF).copy(alpha = 0.20f),
-        tintBottom = Color(0xFF4A5AC0).copy(alpha = 0.22f),
-        fallbackBase = Color.Transparent,
-        sheen = white(0.12f),
-        borderTop = white(0.30f),
-        borderBottom = white(0.05f),
+        tintTop = white(0.16f),
+        tintBottom = white(0.06f),
+        fallbackBase = Color(0xFF1A1F2C),
+        sheen = white(0.16f),
+        borderTop = white(0.32f),
+        borderBottom = white(0.06f),
+        baseAlpha = 0.70f,
     )
     val key = GlassStyle(
         blur = 0.dp,
-        tintTop = Color(0xFF8C9BFF).copy(alpha = 0.26f),
-        tintBottom = Color(0xFF4455BB).copy(alpha = 0.28f),
-        fallbackBase = Color.Transparent,
-        sheen = white(0.16f),
-        borderTop = white(0.34f),
-        borderBottom = white(0.06f),
+        tintTop = white(0.18f),
+        tintBottom = white(0.06f),
+        fallbackBase = Color(0xFF222938),
+        sheen = white(0.20f),
+        borderTop = white(0.42f),
+        borderBottom = white(0.08f),
+        baseAlpha = 0.75f,
     )
     val circle = GlassStyle(
         blur = 0.dp,
-        tintTop = Color(0xFF7080E0).copy(alpha = 0.30f),
-        tintBottom = Color(0xFF3A48A0).copy(alpha = 0.34f),
-        fallbackBase = Color.Transparent,
-        sheen = white(0.12f),
-        borderTop = white(0.30f),
-        borderBottom = white(0.05f),
+        tintTop = white(0.18f),
+        tintBottom = white(0.08f),
+        fallbackBase = Color(0xFF202634),
+        sheen = white(0.18f),
+        borderTop = white(0.35f),
+        borderBottom = white(0.07f),
+        baseAlpha = 0.70f,
     )
     val track = GlassStyle(
         blur = 0.dp,
-        tintTop = white(0.10f),
+        tintTop = white(0.12f),
         tintBottom = white(0.06f),
-        fallbackBase = Color.Transparent,
-        sheen = white(0.05f),
-        borderTop = white(0.20f),
-        borderBottom = white(0.04f),
+        fallbackBase = Color(0xFF151924),
+        sheen = white(0.10f),
+        borderTop = white(0.26f),
+        borderBottom = white(0.06f),
+        baseAlpha = 0.65f,
     )
     val selected = GlassStyle(
         blur = 0.dp,
-        tintTop = Color(0xFFA9B6FF).copy(alpha = 0.55f),
-        tintBottom = Color(0xFF6272E0).copy(alpha = 0.55f),
-        fallbackBase = Color.Transparent,
-        sheen = white(0.20f),
-        borderTop = white(0.45f),
-        borderBottom = white(0.10f),
+        tintTop = white(0.28f),
+        tintBottom = white(0.14f),
+        fallbackBase = Color(0xFF2A3446),
+        sheen = white(0.28f),
+        borderTop = white(0.55f),
+        borderBottom = white(0.12f),
+        baseAlpha = 0.82f,
     )
     val card = GlassStyle(
-        blur = 60.dp,
-        tintTop = Color(0xFF7686F5).copy(alpha = 0.30f),
-        tintBottom = Color(0xFF232C78).copy(alpha = 0.42f),
-        fallbackBase = Color(0xFF12163A),
-        sheen = white(0.08f),
-        borderTop = white(0.30f),
-        borderBottom = white(0.05f),
-        glow = 0.28f,
+        blur = 40.dp,
+        tintTop = white(0.14f),
+        tintBottom = white(0.06f),
+        fallbackBase = Color(0xFF131722),
+        sheen = white(0.18f),
+        borderTop = white(0.36f),
+        borderBottom = white(0.06f),
+        baseAlpha = 0.88f,
+        glow = 0f,
+    )
+    val menu = GlassStyle(
+        blur = 40.dp,
+        tintTop = white(0.14f),
+        tintBottom = white(0.06f),
+        fallbackBase = Color(0xFF141824),
+        sheen = white(0.18f),
+        borderTop = white(0.36f),
+        borderBottom = white(0.07f),
+        baseAlpha = 0.92f,
+        glow = 0f,
     )
     val item = GlassStyle(
         blur = 0.dp,
-        tintTop = white(0.12f),
-        tintBottom = white(0.06f),
-        fallbackBase = Color.Transparent,
-        sheen = white(0.08f),
-        borderTop = white(0.22f),
-        borderBottom = white(0.04f),
+        tintTop = white(0.14f),
+        tintBottom = white(0.07f),
+        fallbackBase = Color(0xFF1B202D),
+        sheen = white(0.14f),
+        borderTop = white(0.30f),
+        borderBottom = white(0.06f),
+        baseAlpha = 0.55f,
     )
 }
 
 private object LightGlass {
     val sheet = GlassStyle(
-        blur = 64.dp,
-        tintTop = white(0.68f),
-        tintBottom = Color(0xFFF1EFFA).copy(alpha = 0.60f),
-        fallbackBase = Color(0xFFF4F3FA),
-        sheen = white(0.60f),
-        borderTop = white(0.95f),
+        blur = 40.dp,
+        tintTop = white(0.85f),
+        tintBottom = white(0.70f),
+        fallbackBase = Color(0xFFF4F6FA),
+        sheen = white(0.75f),
+        borderTop = white(0.98f),
         borderBottom = black(0.06f),
-        glow = 0.22f,
+        baseAlpha = 0.92f,
+        glow = 0f,
     )
     val floatingPill = GlassStyle(
-        blur = 52.dp,
-        tintTop = white(0.62f),
-        tintBottom = white(0.50f),
-        fallbackBase = Color(0xFFF4F3FA),
-        sheen = white(0.60f),
-        borderTop = white(0.90f),
+        blur = 36.dp,
+        tintTop = white(0.85f),
+        tintBottom = white(0.70f),
+        fallbackBase = Color(0xFFF2F4F8),
+        sheen = white(0.75f),
+        borderTop = white(0.95f),
         borderBottom = black(0.06f),
-        glow = 0.20f,
+        baseAlpha = 0.80f,
+        glow = 0f,
     )
     val dockedPill = GlassStyle(
         blur = 0.dp,
-        tintTop = white(0.55f),
-        tintBottom = white(0.35f),
-        fallbackBase = Color.Transparent,
-        sheen = white(0.60f),
-        borderTop = white(0.90f),
+        tintTop = white(0.70f),
+        tintBottom = white(0.50f),
+        fallbackBase = Color(0xFFE8ECF2),
+        sheen = white(0.70f),
+        borderTop = white(0.92f),
         borderBottom = black(0.05f),
+        baseAlpha = 0.75f,
     )
     val key = GlassStyle(
         blur = 0.dp,
-        tintTop = white(0.78f),
-        tintBottom = white(0.46f),
-        fallbackBase = Color.Transparent,
-        sheen = white(0.80f),
-        borderTop = white(0.95f),
-        borderBottom = black(0.05f),
+        tintTop = white(0.95f),
+        tintBottom = white(0.80f),
+        fallbackBase = Color(0xFFFFFFFF),
+        sheen = white(0.85f),
+        borderTop = white(0.98f),
+        borderBottom = black(0.06f),
+        baseAlpha = 0.88f,
     )
     val circle = GlassStyle(
         blur = 0.dp,
-        tintTop = white(0.62f),
-        tintBottom = white(0.40f),
-        fallbackBase = Color.Transparent,
-        sheen = white(0.60f),
-        borderTop = white(0.90f),
-        borderBottom = black(0.05f),
+        tintTop = white(0.80f),
+        tintBottom = white(0.60f),
+        fallbackBase = Color(0xFFFFFFFF),
+        sheen = white(0.70f),
+        borderTop = white(0.95f),
+        borderBottom = black(0.06f),
+        baseAlpha = 0.80f,
     )
     val track = GlassStyle(
         blur = 0.dp,
-        tintTop = black(0.06f),
+        tintTop = black(0.07f),
         tintBottom = black(0.04f),
         fallbackBase = Color.Transparent,
-        sheen = white(0.20f),
-        borderTop = black(0.05f),
-        borderBottom = white(0.40f),
+        sheen = white(0.25f),
+        borderTop = black(0.06f),
+        borderBottom = white(0.50f),
+        baseAlpha = 0f,
     )
     val selected = GlassStyle(
         blur = 0.dp,
-        tintTop = white(0.98f),
-        tintBottom = white(0.86f),
-        fallbackBase = Color.Transparent,
-        sheen = white(0.70f),
+        tintTop = white(1f),
+        tintBottom = white(0.90f),
+        fallbackBase = Color(0xFFFFFFFF),
+        sheen = white(0.85f),
         borderTop = white(1f),
-        borderBottom = black(0.06f),
+        borderBottom = black(0.08f),
+        baseAlpha = 0.95f,
     )
     val card = GlassStyle(
-        blur = 60.dp,
-        tintTop = white(0.80f),
-        tintBottom = white(0.68f),
-        fallbackBase = Color(0xFFFAFAFD),
-        sheen = white(0.60f),
-        borderTop = white(0.95f),
+        blur = 40.dp,
+        tintTop = white(0.85f),
+        tintBottom = white(0.72f),
+        fallbackBase = Color(0xFFF7F8FC),
+        sheen = white(0.70f),
+        borderTop = white(0.96f),
         borderBottom = black(0.06f),
-        glow = 0.18f,
+        baseAlpha = 0.90f,
+        glow = 0f,
+    )
+    val menu = GlassStyle(
+        blur = 40.dp,
+        tintTop = white(0.88f),
+        tintBottom = white(0.72f),
+        fallbackBase = Color(0xFFF7F8FC),
+        sheen = white(0.65f),
+        borderTop = white(0.96f),
+        borderBottom = black(0.06f),
+        baseAlpha = 0.92f,
+        glow = 0f,
     )
     val item = GlassStyle(
         blur = 0.dp,
-        tintTop = white(0.55f),
-        tintBottom = white(0.36f),
-        fallbackBase = Color.Transparent,
-        sheen = white(0.60f),
-        borderTop = white(0.90f),
+        tintTop = white(0.65f),
+        tintBottom = white(0.45f),
+        fallbackBase = Color(0xFFFFFFFF),
+        sheen = white(0.70f),
+        borderTop = white(0.92f),
         borderBottom = black(0.05f),
+        baseAlpha = 0.70f,
     )
 }
 
@@ -545,5 +598,6 @@ object PhoneGlass {
     val track: GlassStyle @Composable get() = if (PhoneColors.isDark) DarkGlass.track else LightGlass.track
     val selected: GlassStyle @Composable get() = if (PhoneColors.isDark) DarkGlass.selected else LightGlass.selected
     val card: GlassStyle @Composable get() = if (PhoneColors.isDark) DarkGlass.card else LightGlass.card
+    val menu: GlassStyle @Composable get() = if (PhoneColors.isDark) DarkGlass.menu else LightGlass.menu
     val item: GlassStyle @Composable get() = if (PhoneColors.isDark) DarkGlass.item else LightGlass.item
 }

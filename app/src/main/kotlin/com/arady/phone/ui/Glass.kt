@@ -107,6 +107,8 @@ class GlassStyle(
     val borderBottom: Color,
     // how much of fallbackBase to lay under the blur (heavier = text behind is harder to see)
     val baseAlpha: Float = 1f,
+    // soft coloured light inside the panel (what makes it read as glass rather than a flat tint)
+    val glow: Float = 0f,
 )
 
 private fun Color.boost(extra: Float): Color = copy(alpha = (alpha + extra).coerceAtMost(1f))
@@ -120,6 +122,7 @@ fun GlassStyle.pressed(): GlassStyle = GlassStyle(
     borderTop = borderTop,
     borderBottom = borderBottom,
     baseAlpha = baseAlpha,
+    glow = glow,
 )
 
 // A glass surface. Pass a GlassSource to blur what is behind it; pass null for a plain tinted glass
@@ -158,6 +161,14 @@ fun Modifier.glass(
                 }
             }
             drawRect(Brush.verticalGradient(listOf(style.tintTop, style.tintBottom)))
+            if (style.glow > 0f) {
+                val g1 = Color(0xFF8C9BFF).copy(alpha = style.glow)
+                val g2 = Color(0xFFB070FF).copy(alpha = style.glow * 0.8f)
+                val g3 = Color(0xFF4FA0FF).copy(alpha = style.glow * 0.7f)
+                drawRect(Brush.radialGradient(listOf(g1, Color.Transparent), center = Offset(size.width * 0.12f, size.height * 0.15f), radius = size.width * 0.55f))
+                drawRect(Brush.radialGradient(listOf(g2, Color.Transparent), center = Offset(size.width * 0.92f, size.height * 0.55f), radius = size.width * 0.5f))
+                drawRect(Brush.radialGradient(listOf(g3, Color.Transparent), center = Offset(size.width * 0.3f, size.height * 0.95f), radius = size.width * 0.5f))
+            }
             drawRect(
                 Brush.verticalGradient(
                     colors = listOf(style.sheen, Color.Transparent),
@@ -274,10 +285,7 @@ fun Modifier.ambientGlow(): Modifier {
             )
         }
         if (dark) {
-            blob(Color(0xFF4F62F0).copy(alpha = 0.40f), 0.10f, 0.12f, 0.95f)
-            blob(Color(0xFF9B50F0).copy(alpha = 0.30f), 0.95f, 0.45f, 0.80f)
-            blob(Color(0xFF2F86FF).copy(alpha = 0.26f), 0.20f, 0.88f, 0.90f)
-            blob(Color(0xFFE15AB5).copy(alpha = 0.14f), 0.85f, 0.95f, 0.60f)
+            // dark mode stays pitch black; the glass panels carry their own coloured light
         } else {
             blob(Color(0xFFB9C3FF).copy(alpha = 0.55f), 0.10f, 0.12f, 0.95f)
             blob(Color(0xFFE6C9FF).copy(alpha = 0.45f), 0.95f, 0.45f, 0.80f)
@@ -363,6 +371,7 @@ private object DarkGlass {
         sheen = white(0.10f),
         borderTop = white(0.32f),
         borderBottom = white(0.05f),
+        glow = 0.32f,
     )
     val floatingPill = GlassStyle(
         blur = 52.dp,
@@ -372,6 +381,7 @@ private object DarkGlass {
         sheen = white(0.12f),
         borderTop = white(0.38f),
         borderBottom = white(0.06f),
+        glow = 0.30f,
     )
     val dockedPill = GlassStyle(
         blur = 0.dp,
@@ -426,6 +436,7 @@ private object DarkGlass {
         sheen = white(0.08f),
         borderTop = white(0.30f),
         borderBottom = white(0.05f),
+        glow = 0.28f,
     )
     val item = GlassStyle(
         blur = 0.dp,
@@ -447,6 +458,7 @@ private object LightGlass {
         sheen = white(0.60f),
         borderTop = white(0.95f),
         borderBottom = black(0.06f),
+        glow = 0.22f,
     )
     val floatingPill = GlassStyle(
         blur = 52.dp,
@@ -456,6 +468,7 @@ private object LightGlass {
         sheen = white(0.60f),
         borderTop = white(0.90f),
         borderBottom = black(0.06f),
+        glow = 0.20f,
     )
     val dockedPill = GlassStyle(
         blur = 0.dp,
@@ -510,6 +523,7 @@ private object LightGlass {
         sheen = white(0.60f),
         borderTop = white(0.95f),
         borderBottom = black(0.06f),
+        glow = 0.18f,
     )
     val item = GlassStyle(
         blur = 0.dp,

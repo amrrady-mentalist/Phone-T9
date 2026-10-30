@@ -1,6 +1,7 @@
 package com.arady.phone.data
 
 import android.content.ContentResolver
+import android.os.Bundle
 import android.provider.CallLog
 import com.arady.phone.CallType
 import com.arady.phone.RecentCall
@@ -9,19 +10,12 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+class TimedCall(val timestamp: Long, val call: RecentCall)
+
 class CallLogRepository(private val resolver: ContentResolver) {
 
-    fun load(contacts: List<Contact>): List<RecentCall> {
-        val projection = arrayOf(
-            CallLog.Calls._ID,
-            CallLog.Calls.NUMBER,
-            CallLog.Calls.CACHED_NAME,
-            CallLog.Calls.TYPE,
-            CallLog.Calls.DATE,
-            CallLog.Calls.GEOCODED_LOCATION,
-        )
-
-        val calls = ArrayList<RecentCall>()
+    fun load(contacts: List<Contact>): List<TimedCall> {
+        val calls = ArrayList<TimedCall>()
         val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
         val dateFormat = SimpleDateFormat("MMM d", Locale.getDefault())
 
@@ -29,14 +23,14 @@ class CallLogRepository(private val resolver: ContentResolver) {
         val todayYear = nowCal.get(Calendar.YEAR)
         val todayDay = nowCal.get(Calendar.DAY_OF_YEAR)
 
+        // The "... LIMIT n" sort-order trick is rejected on newer Android versions, so use query args.
+        val args = Bundle().apply {
+            putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, arrayOf(CallLog.Calls.DATE))
+            putInt(ContentResolver.QUERY_ARG_SORT_DIRECTION, ContentResolver.QUERY_SORT_DIRECTION_DESCENDING)
+            putInt(ContentResolver.QUERY_ARG_LIMIT, 300)
+        }
         val cursor = try {
-            resolver.query(
-                CallLog.Calls.CONTENT_URI,
-                projection,
-                null,
-                null,
-                "${CallLog.Calls.DATE} DESC LIMIT 150",
-            )
+            resolver.query(CallLog.Calls.CONTENT_URI, null, args, null)
         } catch (_: SecurityException) {
             null
         } ?: return emptyList()
@@ -44,18 +38,18 @@ class CallLogRepository(private val resolver: ContentResolver) {
         cursor.use {
             val idCol = it.getColumnIndexOrThrow(CallLog.Calls._ID)
             val numCol = it.getColumnIndexOrThrow(CallLog.Calls.NUMBER)
-            val nameCol = it.getColumnIndexOrThrow(CallLog.Calls.CACHED_NAME)
+            val nameCol = it.getColumnIndex(CallLog.Calls.CACHED_NAME)
             val typeCol = it.getColumnIndexOrThrow(CallLog.Calls.TYPE)
             val dateCol = it.getColumnIndexOrThrow(CallLog.Calls.DATE)
-            val locCol = it.getColumnIndexOrThrow(CallLog.Calls.GEOCODED_LOCATION)
+            val locCol = it.getColumnIndex(CallLog.Calls.GEOCODED_LOCATION)
 
             while (it.moveToNext()) {
                 val id = it.getLong(idCol).toString()
                 val rawNumber = it.getString(numCol).orEmpty()
-                val cachedName = it.getString(nameCol)
+                val cachedName = if (nameCol >= 0) it.getString(nameCol) else null
                 val rawType = it.getInt(typeCol)
                 val epochMillis = it.getLong(dateCol)
-                val location = it.getString(locCol) ?: "Unknown location"
+                val location = (if (locCol >= 0) it.getString(locCol) else null) ?: "Unknown location"
 
                 val callType = when (rawType) {
                     CallLog.Calls.MISSED_TYPE,
@@ -92,8 +86,8 @@ class CallLogRepository(private val resolver: ContentResolver) {
                 val tag = if (isSpam) "Spam / Blocked" else null
 
                 calls.add(
-                    RecentCall(
-                        id = id,
+                    TimedCall(epochMillis, RecentCall(
+                        id = "sys-$id",
                         name = displayName,
                         number = rawNumber,
                         type = callType,
@@ -101,11 +95,26 @@ class CallLogRepository(private val resolver: ContentResolver) {
                         tag = tag,
                         time = formattedTime,
                         isSpam = isSpam,
-                    )
+                    ))
                 )
             }
         }
 
         return calls
+    }
+
+    companion object {
+        fun formatTime(epochMillis: Long): String {
+            val now = Calendar.getInstance()
+            val c = Calendar.getInstance().apply { timeInMillis = epochMillis }
+            val sameYear = c.get(Calendar.YEAR) == now.get(Calendar.YEAR)
+            val day = c.get(Calendar.DAY_OF_YEAR)
+            val today = now.get(Calendar.DAY_OF_YEAR)
+            return when {
+                sameYear && day == today -> SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(epochMillis)).lowercase()
+                sameYear && day == today - 1 -> "Yesterday"
+                else -> SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(epochMillis))
+            }
+        }
     }
 }

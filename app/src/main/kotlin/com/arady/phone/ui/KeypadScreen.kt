@@ -832,6 +832,9 @@ fun FloatingPillNav(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
+        val activeColor = if (PhoneColors.isDark) Color.White else PhoneColors.TextMain
+        val inactiveColor = PhoneColors.TextSecondary
+
         val callsActive = currentTab == Tab.KEYPAD
         Row(
             modifier = Modifier
@@ -843,12 +846,12 @@ fun FloatingPillNav(
         ) {
             SvgIcon(
                 PhoneIcons.Call,
-                if (callsActive) Color.White else (if (PhoneColors.isDark) Color(0xFFA0A8C0) else Color(0xFF6B7280)),
+                if (callsActive) activeColor else inactiveColor,
                 15.dp,
             )
             Text(
                 text = "Calls",
-                color = if (callsActive) Color.White else (if (PhoneColors.isDark) Color(0xFFA0A8C0) else Color(0xFF6B7280)),
+                color = if (callsActive) activeColor else inactiveColor,
                 fontSize = 12.sp,
                 fontWeight = if (callsActive) FontWeight.SemiBold else FontWeight.Medium,
             )
@@ -865,12 +868,12 @@ fun FloatingPillNav(
         ) {
             SvgIcon(
                 PhoneIcons.People,
-                if (contactsActive) Color.White else (if (PhoneColors.isDark) Color(0xFFA0A8C0) else Color(0xFF6B7280)),
+                if (contactsActive) activeColor else inactiveColor,
                 15.dp,
             )
             Text(
                 text = "Contacts",
-                color = if (contactsActive) Color.White else (if (PhoneColors.isDark) Color(0xFFA0A8C0) else Color(0xFF6B7280)),
+                color = if (contactsActive) activeColor else inactiveColor,
                 fontSize = 12.sp,
                 fontWeight = if (contactsActive) FontWeight.SemiBold else FontWeight.Medium,
             )

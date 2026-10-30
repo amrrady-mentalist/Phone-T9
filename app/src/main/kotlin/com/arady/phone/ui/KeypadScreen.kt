@@ -40,7 +40,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
@@ -204,14 +203,7 @@ fun KeypadScreen(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .then(
-                                if (vm.keypadVisible) {
-                                    Modifier.blur(8.dp)
-                                } else {
-                                    Modifier
-                                }
-                            ),
+                            .padding(horizontal = 16.dp),
                     ) {
                         items(filteredCalls, key = { it.id }) { call ->
                             CallItemRow(

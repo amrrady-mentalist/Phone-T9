@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.arady.phone.data.AppCallStore
 import com.arady.phone.data.CallLogRepository
 import com.arady.phone.data.Contact
 import com.arady.phone.data.ContactsRepository
@@ -40,6 +41,7 @@ class PhoneViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = Prefs(app)
     private val contactsRepository = ContactsRepository(app.contentResolver)
     private val callLogRepository = CallLogRepository(app.contentResolver)
+    private val appCalls = AppCallStore(app)
 
     // --- theme ---
     var themeMode by mutableStateOf(prefs.themeMode)
@@ -101,6 +103,7 @@ class PhoneViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     init {
+        refreshCalls()
         viewModelScope.launch(Dispatchers.Default) {
             try {
                 val built = getApplication<Application>().assets.open("words_alpha.txt")
@@ -176,30 +179,11 @@ class PhoneViewModel(app: Application) : AndroidViewModel(app) {
         val top = engine.topWord(typed)
         send(typed, top)
 
-        // Record in recent calls
-        val newCall = RecentCall(
-            id = System.currentTimeMillis().toString(),
-            name = typed,
-            number = typed,
-            type = CallType.OUTGOING,
-            location = "Outgoing Call",
-            tag = null,
-            time = "Just now",
-        )
-        recentCalls = listOf(newCall) + recentCalls
+        rememberCall(typed, typed)
     }
 
     fun dialCall(number: String, name: String = number) {
-        val newCall = RecentCall(
-            id = System.currentTimeMillis().toString(),
-            name = name,
-            number = number,
-            type = CallType.OUTGOING,
-            location = "Outgoing Call",
-            tag = null,
-            time = "Just now",
-        )
-        recentCalls = listOf(newCall) + recentCalls
+        rememberCall(name, number)
         val typed = number.filter { it in '0'..'9' }
         if (typed.isNotEmpty()) {
             val top = engine.topWord(typed)
@@ -209,22 +193,52 @@ class PhoneViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------------- call history ----------------
 
+    // Saves a call made from inside the app so it stays in the history after restarts.
+    private fun rememberCall(name: String, number: String) {
+        val now = System.currentTimeMillis()
+        appCalls.add(AppCallStore.Entry("app-$now", name, number, now))
+        refreshCalls()
+    }
+
+    // Combined history: the phone's own call log (when allowed) + calls dialed inside this app, newest first.
+    private fun refreshCalls() {
+        viewModelScope.launch {
+            val merged = withContext(Dispatchers.IO) {
+                val list = ArrayList<com.arady.phone.data.TimedCall>()
+                if (callLogPermissionGranted) {
+                    try {
+                        list.addAll(callLogRepository.load(contacts))
+                    } catch (_: Exception) {
+                    }
+                }
+                for (e in appCalls.load()) {
+                    list.add(
+                        com.arady.phone.data.TimedCall(
+                            e.timestamp,
+                            RecentCall(
+                                id = e.id,
+                                name = e.name,
+                                number = e.number,
+                                type = CallType.OUTGOING,
+                                location = "Outgoing Call",
+                                time = CallLogRepository.formatTime(e.timestamp),
+                            ),
+                        ),
+                    )
+                }
+                list.sortedByDescending { it.timestamp }.map { it.call }
+            }
+            recentCalls = merged
+        }
+    }
+
     fun onCallLogPermission(granted: Boolean) {
         callLogPermissionGranted = granted
         if (granted) reloadCallLogs()
     }
 
     fun reloadCallLogs() {
-        viewModelScope.launch {
-            val loaded = withContext(Dispatchers.IO) {
-                try {
-                    callLogRepository.load(contacts)
-                } catch (_: Exception) {
-                    emptyList()
-                }
-            }
-            recentCalls = loaded
-        }
+        refreshCalls()
     }
 
     // ---------------- contacts ----------------
@@ -244,17 +258,8 @@ class PhoneViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
             contacts = loaded
-            // Refresh call logs with matched contact names if call log permission is on
-            if (callLogPermissionGranted) {
-                val updatedLogs = withContext(Dispatchers.IO) {
-                    try {
-                        callLogRepository.load(loaded)
-                    } catch (_: Exception) {
-                        emptyList()
-                    }
-                }
-                if (updatedLogs.isNotEmpty()) recentCalls = updatedLogs
-            }
+            // Refresh history so numbers pick up contact names
+            refreshCalls()
         }
     }
 

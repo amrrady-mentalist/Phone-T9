@@ -106,9 +106,17 @@ class PhoneViewModel(app: Application) : AndroidViewModel(app) {
         refreshCalls()
         viewModelScope.launch(Dispatchers.Default) {
             try {
-                val built = getApplication<Application>().assets.open("words_alpha.txt")
+                val assets = getApplication<Application>().assets
+                val ranked = try {
+                    assets.open("words_ranked.txt").bufferedReader().useLines { it.toList() }
+                } catch (_: Exception) {
+                    emptyList()
+                }
+                val built = assets.open("words_alpha.txt")
                     .bufferedReader()
-                    .useLines { lines -> T9Engine.build(lines) }
+                    .useLines { lines ->
+                        if (ranked.isEmpty()) T9Engine.build(lines) else T9Engine.buildRanked(ranked, lines)
+                    }
                 engine = built
                 dictionaryReady = true
             } catch (_: Exception) {

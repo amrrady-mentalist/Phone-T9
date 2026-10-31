@@ -16,6 +16,8 @@ class T9Engine private constructor() {
     private val dictionary = LinkedHashMap<String, ArrayList<String>>()
     private val priorityIndex = HashMap<String, Int>()
     private val priorityOrder = ArrayList<String>() // distinct priority words, in list order
+    // Frequency rank (0 = most common) of the common-word list. Empty = classic behaviour (identical to the web app).
+    private val rankIndex = HashMap<String, Int>()
     private var orderedKeys: Array<String> = emptyArray()
 
     val wordCount: Int
@@ -56,8 +58,10 @@ class T9Engine private constructor() {
     }
 
     private fun weight(word: String): Int {
-        val idx = priorityIndex[word] ?: return 100
-        return 100000 - idx
+        val idx = priorityIndex[word]
+        if (idx != null) return 100000 - idx
+        val r = rankIndex[word] ?: return 100
+        return 90000 - r // always below every priority word (>= 99800), above all unranked words
     }
 
     // Returns the ranked results for a digit sequence, exactly like getSmartT9Matches() in the original,
@@ -74,6 +78,8 @@ class T9Engine private constructor() {
         if (exact != null) {
             for (w in exact.sortedByDescending { weight(it) }) {
                 if (w == JS_QUIRK_WORD) continue
+                // Ranked mode: rare dictionary words only fill in when fewer than 3 common words matched.
+                if (rankIndex.isNotEmpty() && results.size >= 3 && !priorityIndex.containsKey(w) && !rankIndex.containsKey(w)) continue
                 results.add(T9Match(w, MatchType.EXACT))
                 if (results.size >= limit) return results
             }
@@ -89,7 +95,24 @@ class T9Engine private constructor() {
                 if (results.size >= limit) return results
             }
         }
-        scan@ for (key in orderedKeys) {
+        if (rankIndex.isNotEmpty()) {
+            // Ranked mode: predictions only from the common-word list, most common first, shorter words first.
+            val cands = ArrayList<String>()
+            for (key in orderedKeys) {
+                if (key.length <= n || !key.startsWith(seq)) continue
+                for (w in dictionary.getValue(key)) {
+                    if (priorityIndex.containsKey(w) || !rankIndex.containsKey(w)) continue
+                    if (w == JS_QUIRK_WORD || isBoringSuffix(w, n)) continue
+                    cands.add(w)
+                }
+            }
+            cands.sortWith(compareBy<String> { rankIndex.getValue(it) }.thenBy { it.length }.thenBy { it })
+            for (w in cands) {
+                results.add(T9Match(w, MatchType.SUGGEST))
+                if (results.size >= limit) return results
+            }
+        }
+        if (rankIndex.isEmpty()) scan@ for (key in orderedKeys) {
             if (key.length <= n || !key.startsWith(seq)) continue
             for (w in dictionary.getValue(key)) {
                 if (priorityIndex.containsKey(w)) continue
@@ -168,6 +191,21 @@ class T9Engine private constructor() {
 
         // Priority list only (what the original app has before / without the big dictionary).
         fun buildPriorityOnly(): T9Engine = build(emptySequence())
+
+        // Ranked build: priority list, then the common words (most common first), then the full dictionary
+        // as a fallback so any word can still be an exact match.
+        fun buildRanked(rankedWords: List<String>, dictionaryWords: Sequence<String>): T9Engine {
+            val engine = T9Engine()
+            engine.indexWords(PriorityWords.LIST.asSequence(), lowPriority = false)
+            engine.indexWords(rankedWords.asSequence(), lowPriority = true)
+            engine.indexWords(dictionaryWords, lowPriority = true)
+            rankedWords.forEachIndexed { i, w ->
+                val c = clean(w)
+                if (c.length > 1 && !engine.rankIndex.containsKey(c)) engine.rankIndex[c] = i
+            }
+            engine.finish()
+            return engine
+        }
 
         // Priority list first, then the dictionary words (low priority), like the original boot sequence.
         fun build(dictionaryWords: Sequence<String>): T9Engine {

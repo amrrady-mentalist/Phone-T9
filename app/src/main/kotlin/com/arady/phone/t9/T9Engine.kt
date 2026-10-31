@@ -18,6 +18,7 @@ class T9Engine private constructor() {
     private val priorityOrder = ArrayList<String>() // distinct priority words, in list order
     // Frequency rank (0 = most common) of the common-word list. Empty = classic behaviour (identical to the web app).
     private val rankIndex = HashMap<String, Int>()
+    private val rankedList = ArrayList<String>() // common words in rank order (ranked mode only)
     private var orderedKeys: Array<String> = emptyArray()
 
     val wordCount: Int
@@ -90,7 +91,8 @@ class T9Engine private constructor() {
         //    Priority words come first (ordered by weight), then everything else in dictionary iteration order.
         for (w in priorityOrder) {
             val s = toSequence(w)
-            if (w != JS_QUIRK_WORD && s.length > n && s.startsWith(seq) && !isBoringSuffix(w, n)) {
+            if (w != JS_QUIRK_WORD && s.length > n && s.startsWith(seq) && !isBoringSuffix(w, n) &&
+                (rankIndex.isEmpty() || s.length <= n + MAX_EXTRA)) {
                 results.add(T9Match(w, MatchType.SUGGEST))
                 if (results.size >= limit) return results
             }
@@ -99,7 +101,7 @@ class T9Engine private constructor() {
             // Ranked mode: predictions only from the common-word list, most common first, shorter words first.
             val cands = ArrayList<String>()
             for (key in orderedKeys) {
-                if (key.length <= n || !key.startsWith(seq)) continue
+                if (key.length <= n || key.length > n + MAX_EXTRA || !key.startsWith(seq)) continue
                 for (w in dictionary.getValue(key)) {
                     if (priorityIndex.containsKey(w) || !rankIndex.containsKey(w)) continue
                     if (w == JS_QUIRK_WORD || isBoringSuffix(w, n)) continue
@@ -122,6 +124,27 @@ class T9Engine private constructor() {
             }
         }
         if (results.size >= limit) return results
+
+        // Ranked mode: when fewer than 3 results, offer the closest common words that are within 1-2 letters
+        // of the typed length: one wrong digit, one missing/extra digit, or extra digits typed after a shorter word.
+        if (rankIndex.isNotEmpty() && results.size < 3) {
+            val shown = HashSet<String>()
+            for (r in results) shown.add(r.word)
+            val near = ArrayList<String>()
+            for (w in rankedList) {
+                val wl = w.length
+                if (wl < n - MAX_EXTRA || wl > n + 1 || shown.contains(w) || w == JS_QUIRK_WORD) continue
+                val ws = toSequence(w)
+                val ok = if (wl >= n - 1 && wl <= n + 1) withinOneEdit(seq, ws) else wl >= 4 && seq.startsWith(ws)
+                if (ok) near.add(w)
+            }
+            near.sortWith(compareBy<String> { rankIndex.getValue(it) })
+            for (w in near) {
+                results.add(T9Match(w, MatchType.CORRECTION))
+                if (results.size >= minOf(limit, 6) || results.size >= 6) break
+            }
+            if (results.size >= limit) return results.take(limit)
+        }
 
         // 3) Corrections: only when nothing else was found. Same length, exactly one differing digit
         //    (for equal lengths that is the same thing as Levenshtein distance 1), best 3 by weight.
@@ -155,6 +178,23 @@ class T9Engine private constructor() {
         // Quirk kept on purpose: the JS de-dupe used a plain object, where seen["constructor"] is already
         // truthy, so the original app can never show this one word. Keeping it makes results identical.
         private const val JS_QUIRK_WORD = "constructor"
+
+        // Ranked mode never suggests words more than this many letters longer than what was typed.
+        private const val MAX_EXTRA = 2
+
+        private fun withinOneEdit(a: String, b: String): Boolean {
+            val la = a.length
+            val lb = b.length
+            if (kotlin.math.abs(la - lb) > 1) return false
+            var i = 0
+            while (i < la && i < lb && a[i] == b[i]) i++
+            if (i == la && i == lb) return true
+            return when {
+                la == lb -> a.substring(i + 1) == b.substring(i + 1)
+                la > lb -> a.substring(i + 1) == b.substring(i)
+                else -> a.substring(i) == b.substring(i + 1)
+            }
+        }
 
         private fun isBoringSuffix(word: String, typedLength: Int): Boolean =
             word.length > typedLength && word.substring(typedLength) in BORING_SUFFIXES
@@ -201,7 +241,10 @@ class T9Engine private constructor() {
             engine.indexWords(dictionaryWords, lowPriority = true)
             rankedWords.forEachIndexed { i, w ->
                 val c = clean(w)
-                if (c.length > 1 && !engine.rankIndex.containsKey(c)) engine.rankIndex[c] = i
+                if (c.length > 1 && !engine.rankIndex.containsKey(c)) {
+                    engine.rankIndex[c] = i
+                    engine.rankedList.add(c)
+                }
             }
             engine.finish()
             return engine

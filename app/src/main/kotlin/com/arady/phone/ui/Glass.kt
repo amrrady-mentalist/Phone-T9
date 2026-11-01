@@ -390,12 +390,12 @@ private object DarkGlass {
     val floatingPill = GlassStyle(
         blur = 56.dp,
         tintTop = white(0.10f),
-        tintBottom = white(0.03f),
-        fallbackBase = Color(0xFF1C1C1E),
-        sheen = white(0.14f),
-        borderTop = white(0.24f),
+        tintBottom = black(0.12f),
+        fallbackBase = Color(0xFF232326),
+        sheen = white(0.16f),
+        borderTop = white(0.26f),
         borderBottom = white(0.05f),
-        baseAlpha = 0.30f,
+        baseAlpha = 0.95f,
         glow = 0f,
     )
     val dockedPill = GlassStyle(
@@ -451,23 +451,23 @@ private object DarkGlass {
     val card = GlassStyle(
         blur = 56.dp,
         tintTop = white(0.10f),
-        tintBottom = white(0.03f),
-        fallbackBase = Color(0xFF1C1C1E),
-        sheen = white(0.14f),
-        borderTop = white(0.24f),
+        tintBottom = black(0.12f),
+        fallbackBase = Color(0xFF232326),
+        sheen = white(0.16f),
+        borderTop = white(0.26f),
         borderBottom = white(0.05f),
-        baseAlpha = 0.30f,
+        baseAlpha = 0.95f,
         glow = 0f,
     )
     val menu = GlassStyle(
         blur = 56.dp,
         tintTop = white(0.10f),
-        tintBottom = white(0.03f),
-        fallbackBase = Color(0xFF1C1C1E),
-        sheen = white(0.14f),
-        borderTop = white(0.24f),
+        tintBottom = black(0.12f),
+        fallbackBase = Color(0xFF232326),
+        sheen = white(0.16f),
+        borderTop = white(0.26f),
         borderBottom = white(0.05f),
-        baseAlpha = 0.30f,
+        baseAlpha = 0.95f,
         glow = 0f,
     )
     val item = GlassStyle(
@@ -496,13 +496,13 @@ private object LightGlass {
     )
     val floatingPill = GlassStyle(
         blur = 56.dp,
-        tintTop = white(0.38f),
-        tintBottom = white(0.26f),
-        fallbackBase = Color(0xFFF5F5F7),
-        sheen = white(0.50f),
-        borderTop = white(0.85f),
-        borderBottom = black(0.05f),
-        baseAlpha = 0.32f,
+        tintTop = white(0.55f),
+        tintBottom = white(0.25f),
+        fallbackBase = Color(0xFFF4F4F7),
+        sheen = white(0.55f),
+        borderTop = white(0.90f),
+        borderBottom = black(0.06f),
+        baseAlpha = 0.95f,
         glow = 0f,
     )
     val dockedPill = GlassStyle(
@@ -557,24 +557,24 @@ private object LightGlass {
     )
     val card = GlassStyle(
         blur = 56.dp,
-        tintTop = white(0.38f),
-        tintBottom = white(0.26f),
-        fallbackBase = Color(0xFFF5F5F7),
-        sheen = white(0.50f),
-        borderTop = white(0.85f),
-        borderBottom = black(0.05f),
-        baseAlpha = 0.32f,
+        tintTop = white(0.55f),
+        tintBottom = white(0.25f),
+        fallbackBase = Color(0xFFF4F4F7),
+        sheen = white(0.55f),
+        borderTop = white(0.90f),
+        borderBottom = black(0.06f),
+        baseAlpha = 0.95f,
         glow = 0f,
     )
     val menu = GlassStyle(
         blur = 56.dp,
-        tintTop = white(0.38f),
-        tintBottom = white(0.26f),
-        fallbackBase = Color(0xFFF5F5F7),
-        sheen = white(0.50f),
-        borderTop = white(0.85f),
-        borderBottom = black(0.05f),
-        baseAlpha = 0.32f,
+        tintTop = white(0.55f),
+        tintBottom = white(0.25f),
+        fallbackBase = Color(0xFFF4F4F7),
+        sheen = white(0.55f),
+        borderTop = white(0.90f),
+        borderBottom = black(0.06f),
+        baseAlpha = 0.95f,
         glow = 0f,
     )
     val item = GlassStyle(

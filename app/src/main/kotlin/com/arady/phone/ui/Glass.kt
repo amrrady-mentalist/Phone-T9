@@ -400,7 +400,7 @@ private object DarkGlass {
         sheen = white(0.24f),
         borderTop = white(0.38f),
         borderBottom = white(0.08f),
-        baseAlpha = 0.92f,
+        baseAlpha = 0.94f,
         glow = 0f,
     )
     val floatingPill = GlassStyle(
@@ -466,24 +466,24 @@ private object DarkGlass {
     )
     val card = GlassStyle(
         blur = 42.dp,
-        tintTop = white(0.14f),
+        tintTop = white(0.12f),
         tintBottom = white(0.04f),
-        fallbackBase = Color(0xFF1E2028),
-        sheen = white(0.18f),
-        borderTop = white(0.30f),
-        borderBottom = white(0.06f),
-        baseAlpha = 0.82f,
+        fallbackBase = Color(0xFF1C1E26),
+        sheen = white(0.20f),
+        borderTop = white(0.35f),
+        borderBottom = white(0.08f),
+        baseAlpha = 0.94f,
         glow = 0f,
     )
     val menu = GlassStyle(
         blur = 42.dp,
-        tintTop = white(0.15f),
+        tintTop = white(0.14f),
         tintBottom = white(0.04f),
-        fallbackBase = Color(0xFF22242B),
-        sheen = white(0.18f),
-        borderTop = white(0.30f),
-        borderBottom = white(0.06f),
-        baseAlpha = 0.75f,
+        fallbackBase = Color(0xFF1C1E26),
+        sheen = white(0.20f),
+        borderTop = white(0.35f),
+        borderBottom = white(0.08f),
+        baseAlpha = 0.95f,
         glow = 0f,
     )
     val item = GlassStyle(
@@ -507,7 +507,7 @@ private object LightGlass {
         sheen = white(0.75f),
         borderTop = white(0.98f),
         borderBottom = black(0.06f),
-        baseAlpha = 0.92f,
+        baseAlpha = 0.94f,
         glow = 0f,
     )
     val floatingPill = GlassStyle(
@@ -574,23 +574,23 @@ private object LightGlass {
     val card = GlassStyle(
         blur = 42.dp,
         tintTop = white(0.85f),
-        tintBottom = white(0.68f),
-        fallbackBase = Color(0xFFF6F7FA),
+        tintBottom = white(0.70f),
+        fallbackBase = Color(0xFFF6F8FB),
         sheen = white(0.85f),
         borderTop = white(0.98f),
         borderBottom = black(0.06f),
-        baseAlpha = 0.84f,
+        baseAlpha = 0.95f,
         glow = 0f,
     )
     val menu = GlassStyle(
         blur = 42.dp,
         tintTop = white(0.88f),
-        tintBottom = white(0.68f),
-        fallbackBase = Color(0xFFF6F7FA),
+        tintBottom = white(0.70f),
+        fallbackBase = Color(0xFFF6F8FB),
         sheen = white(0.85f),
         borderTop = white(0.98f),
         borderBottom = black(0.06f),
-        baseAlpha = 0.80f,
+        baseAlpha = 0.96f,
         glow = 0f,
     )
     val item = GlassStyle(

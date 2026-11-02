@@ -52,7 +52,7 @@ fun PeekOverlay(vm: PhoneViewModel, glass: GlassSource) {
     TapBox(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0x66000000))
+            .background(if (PhoneColors.isDark) Color(0x77000000) else Color(0x33000000))
             .padding(24.dp),
         contentAlignment = Alignment.Center,
         onClick = { vm.closePeek() },
@@ -163,7 +163,7 @@ fun SettingsOverlay(vm: PhoneViewModel, glass: GlassSource) {
     TapBox(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0x66000000))
+            .background(if (PhoneColors.isDark) Color(0x77000000) else Color(0x33000000))
             .imePadding()
             .padding(20.dp),
         contentAlignment = Alignment.Center,

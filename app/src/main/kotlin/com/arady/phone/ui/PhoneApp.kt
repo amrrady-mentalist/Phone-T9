@@ -13,6 +13,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.unit.dp
 import com.arady.phone.PhoneViewModel
 import com.arady.phone.Tab
 
@@ -49,6 +51,8 @@ fun PhoneApp(
 
     PhoneTheme(darkTheme = isDark) {
         val rootGlass = rememberGlassSource()
+        val isOverlayOpen = vm.settingsVisible || vm.peekVisible || vm.detailsContact != null
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -58,6 +62,7 @@ fun PhoneApp(
                 modifier = Modifier
                     .fillMaxSize()
                     .fillMaxWidth()
+                    .then(if (isOverlayOpen) Modifier.blur(28.dp) else Modifier)
                     .glassSource(rootGlass),
             ) {
                 when (vm.tab) {
@@ -78,3 +83,4 @@ fun PhoneApp(
         }
     }
 }
+

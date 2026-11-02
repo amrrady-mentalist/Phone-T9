@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -200,7 +201,7 @@ fun Modifier.glass(
             drawContent()
         }
         .border(
-            1.2.dp,
+            1.dp,
             Brush.linearGradient(
                 colors = listOf(style.borderTop, style.borderTop.copy(alpha = style.borderTop.alpha * 0.5f), style.borderBottom),
                 start = Offset(0f, 0f),
@@ -307,7 +308,7 @@ fun GlossButton(
 @Composable
 fun Modifier.ambientGlow(): Modifier = this
 
-// Overflow menu rendered as a pure frosted glass card.
+// Overflow menu rendered as a pure frosted glass card matching Apple Music / iOS / ColorOS.
 // Place it LAST inside the screen's root Box so it blurs content beneath it.
 @Composable
 fun GlassMenu(
@@ -328,15 +329,18 @@ fun GlassMenu(
                 .fillMaxSize()
                 .clickable(interactionSource = scrim, indication = null, onClick = onDismiss),
         ) {
+            val shadowColor = if (PhoneColors.isDark) Color.Black.copy(alpha = 0.60f) else Color.Black.copy(alpha = 0.14f)
+            val menuShape = RoundedCornerShape(20.dp)
             Column(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .statusBarsPadding()
                     .padding(top = 52.dp, end = 20.dp)
                     .widthIn(min = 210.dp, max = 270.dp)
-                    .glass(RoundedCornerShape(22.dp), PhoneGlass.menu, glass)
+                    .shadow(18.dp, menuShape, ambientColor = shadowColor, spotColor = shadowColor)
+                    .glass(menuShape, PhoneGlass.menu, glass)
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
-                    .padding(6.dp),
+                    .padding(vertical = 4.dp),
                 content = content,
             )
         }
@@ -351,25 +355,37 @@ fun GlassMenuItem(
 ) {
     PressBox(
         normal = Color.Transparent,
-        pressed = if (PhoneColors.isDark) Color(0x22FFFFFF) else Color(0x12000000),
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        pressed = if (PhoneColors.isDark) Color(0x24FFFFFF) else Color(0x14000000),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp),
+        shape = RoundedCornerShape(12.dp),
         contentAlignment = Alignment.CenterStart,
         onClick = onClick,
     ) {
         Text(
             text = text,
             color = color,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Medium,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Normal,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 13.dp),
         )
     }
 }
 
+@Composable
+fun GlassMenuDivider() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .height(0.6.dp)
+            .background(if (PhoneColors.isDark) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.08f)),
+    )
+}
+
 // ---------------------------------------------------------------------------------------------
-// The two glass palettes. Dark mode follows the ColorOS Liquid Glass: translucent slate/indigo
-// with electric purple bottom-left caustic refraction and bright specular rim highlights.
+// The two glass palettes.
 // ---------------------------------------------------------------------------------------------
 
 private fun white(a: Float) = Color.White.copy(alpha = a)
@@ -388,14 +404,14 @@ private object DarkGlass {
         glow = 0f,
     )
     val floatingPill = GlassStyle(
-        blur = 56.dp,
-        tintTop = white(0.10f),
-        tintBottom = black(0.12f),
-        fallbackBase = Color(0xFF232326),
-        sheen = white(0.16f),
-        borderTop = white(0.26f),
-        borderBottom = white(0.05f),
-        baseAlpha = 0.95f,
+        blur = 42.dp,
+        tintTop = white(0.14f),
+        tintBottom = white(0.04f),
+        fallbackBase = Color(0xFF1E2028),
+        sheen = white(0.18f),
+        borderTop = white(0.30f),
+        borderBottom = white(0.06f),
+        baseAlpha = 0.75f,
         glow = 0f,
     )
     val dockedPill = GlassStyle(
@@ -449,25 +465,25 @@ private object DarkGlass {
         baseAlpha = 0.82f,
     )
     val card = GlassStyle(
-        blur = 56.dp,
-        tintTop = white(0.10f),
-        tintBottom = black(0.12f),
-        fallbackBase = Color(0xFF232326),
-        sheen = white(0.16f),
-        borderTop = white(0.26f),
-        borderBottom = white(0.05f),
-        baseAlpha = 0.95f,
+        blur = 42.dp,
+        tintTop = white(0.14f),
+        tintBottom = white(0.04f),
+        fallbackBase = Color(0xFF1E2028),
+        sheen = white(0.18f),
+        borderTop = white(0.30f),
+        borderBottom = white(0.06f),
+        baseAlpha = 0.82f,
         glow = 0f,
     )
     val menu = GlassStyle(
-        blur = 56.dp,
-        tintTop = white(0.10f),
-        tintBottom = black(0.12f),
-        fallbackBase = Color(0xFF232326),
-        sheen = white(0.16f),
-        borderTop = white(0.26f),
-        borderBottom = white(0.05f),
-        baseAlpha = 0.95f,
+        blur = 42.dp,
+        tintTop = white(0.15f),
+        tintBottom = white(0.04f),
+        fallbackBase = Color(0xFF22242B),
+        sheen = white(0.18f),
+        borderTop = white(0.30f),
+        borderBottom = white(0.06f),
+        baseAlpha = 0.75f,
         glow = 0f,
     )
     val item = GlassStyle(
@@ -495,14 +511,14 @@ private object LightGlass {
         glow = 0f,
     )
     val floatingPill = GlassStyle(
-        blur = 56.dp,
-        tintTop = white(0.55f),
-        tintBottom = white(0.25f),
-        fallbackBase = Color(0xFFF4F4F7),
-        sheen = white(0.55f),
-        borderTop = white(0.90f),
+        blur = 42.dp,
+        tintTop = white(0.85f),
+        tintBottom = white(0.65f),
+        fallbackBase = Color(0xFFF6F7FA),
+        sheen = white(0.85f),
+        borderTop = white(0.98f),
         borderBottom = black(0.06f),
-        baseAlpha = 0.95f,
+        baseAlpha = 0.78f,
         glow = 0f,
     )
     val dockedPill = GlassStyle(
@@ -556,25 +572,25 @@ private object LightGlass {
         baseAlpha = 0.95f,
     )
     val card = GlassStyle(
-        blur = 56.dp,
-        tintTop = white(0.55f),
-        tintBottom = white(0.25f),
-        fallbackBase = Color(0xFFF4F4F7),
-        sheen = white(0.55f),
-        borderTop = white(0.90f),
+        blur = 42.dp,
+        tintTop = white(0.85f),
+        tintBottom = white(0.68f),
+        fallbackBase = Color(0xFFF6F7FA),
+        sheen = white(0.85f),
+        borderTop = white(0.98f),
         borderBottom = black(0.06f),
-        baseAlpha = 0.95f,
+        baseAlpha = 0.84f,
         glow = 0f,
     )
     val menu = GlassStyle(
-        blur = 56.dp,
-        tintTop = white(0.55f),
-        tintBottom = white(0.25f),
-        fallbackBase = Color(0xFFF4F4F7),
-        sheen = white(0.55f),
-        borderTop = white(0.90f),
+        blur = 42.dp,
+        tintTop = white(0.88f),
+        tintBottom = white(0.68f),
+        fallbackBase = Color(0xFFF6F7FA),
+        sheen = white(0.85f),
+        borderTop = white(0.98f),
         borderBottom = black(0.06f),
-        baseAlpha = 0.95f,
+        baseAlpha = 0.80f,
         glow = 0f,
     )
     val item = GlassStyle(

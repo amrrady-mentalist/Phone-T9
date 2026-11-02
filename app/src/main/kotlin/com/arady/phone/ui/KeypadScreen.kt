@@ -289,6 +289,7 @@ fun KeypadScreen(
                 menuExpanded = false
                 vm.openSettings()
             }
+            GlassMenuDivider()
             val currentLabel = when (vm.themeMode) {
                 "light" -> "Dark Mode"
                 "dark" -> "System Mode"
@@ -303,6 +304,7 @@ fun KeypadScreen(
                 }
                 vm.applyThemeMode(nextMode)
             }
+            GlassMenuDivider()
             GlassMenuItem("Refresh Call Log", color = PhoneColors.TextSecondary) {
                 menuExpanded = false
                 vm.reloadCallLogs()
@@ -825,8 +827,18 @@ fun FloatingPillNav(
     glass: GlassSource? = null,
     docked: Boolean = false,
 ) {
+    val shadowAmbient = if (PhoneColors.isDark) Color.Black.copy(alpha = 0.50f) else Color.Black.copy(alpha = 0.12f)
+    val shadowSpot = if (PhoneColors.isDark) Color.Black.copy(alpha = 0.65f) else Color.Black.copy(alpha = 0.18f)
+
     Row(
         modifier = modifier
+            .then(
+                if (!docked) {
+                    Modifier.shadow(14.dp, CircleShape, ambientColor = shadowAmbient, spotColor = shadowSpot)
+                } else {
+                    Modifier
+                }
+            )
             .glass(CircleShape, if (docked) PhoneGlass.dockedPill else PhoneGlass.floatingPill, glass)
             .padding(horizontal = 4.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,

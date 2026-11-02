@@ -387,6 +387,7 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
                 menuExpanded = false
                 vm.openSettings()
             }
+            GlassMenuDivider()
             val currentLabel = when (vm.themeMode) {
                 "light" -> "Dark Mode"
                 "dark" -> "System Mode"
@@ -401,6 +402,7 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
                 }
                 vm.applyThemeMode(nextMode)
             }
+            GlassMenuDivider()
             GlassMenuItem("Refresh Contacts", color = PhoneColors.TextSecondary) {
                 menuExpanded = false
                 vm.reloadContacts()

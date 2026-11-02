@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -245,11 +246,18 @@ private fun DetailsContent(vm: PhoneViewModel, contact: Contact) {
 
             // Contact Numbers Card
             if (contact.phones.isNotEmpty()) {
+                val cardShape = RoundedCornerShape(26.dp)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp)
-                        .glass(RoundedCornerShape(26.dp), PhoneGlass.card)
+                        .shadow(
+                            12.dp,
+                            cardShape,
+                            ambientColor = if (PhoneColors.isDark) Color.Black.copy(alpha = 0.45f) else Color.Black.copy(alpha = 0.10f),
+                            spotColor = if (PhoneColors.isDark) Color.Black.copy(alpha = 0.60f) else Color.Black.copy(alpha = 0.16f),
+                        )
+                        .glass(cardShape, PhoneGlass.card)
                         .padding(horizontal = 18.dp, vertical = 12.dp),
                 ) {
                     Text(

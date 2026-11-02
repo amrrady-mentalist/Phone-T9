@@ -62,7 +62,7 @@ fun PhoneApp(
                 modifier = Modifier
                     .fillMaxSize()
                     .fillMaxWidth()
-                    .then(if (isOverlayOpen) Modifier.blur(28.dp) else Modifier)
+                    .then(if (isOverlayOpen) Modifier.blur(48.dp) else Modifier)
                     .glassSource(rootGlass),
             ) {
                 when (vm.tab) {

@@ -393,7 +393,7 @@ private fun black(a: Float) = Color.Black.copy(alpha = a)
 
 private object DarkGlass {
     val sheet = GlassStyle(
-        blur = 40.dp,
+        blur = 60.dp,
         tintTop = white(0.06f),
         tintBottom = white(0.04f),
         fallbackBase = Color(0xFF14151B),
@@ -404,7 +404,7 @@ private object DarkGlass {
         glow = 0f,
     )
     val floatingPill = GlassStyle(
-        blur = 42.dp,
+        blur = 60.dp,
         tintTop = white(0.07f),
         tintBottom = white(0.05f),
         fallbackBase = Color(0xFF1E2026),
@@ -465,7 +465,7 @@ private object DarkGlass {
         baseAlpha = 0.86f,
     )
     val card = GlassStyle(
-        blur = 42.dp,
+        blur = 60.dp,
         tintTop = white(0.06f),
         tintBottom = white(0.05f),
         fallbackBase = Color(0xFF1C1D23),
@@ -476,7 +476,7 @@ private object DarkGlass {
         glow = 0f,
     )
     val menu = GlassStyle(
-        blur = 42.dp,
+        blur = 60.dp,
         tintTop = white(0.06f),
         tintBottom = white(0.05f),
         fallbackBase = Color(0xFF1C1D23),
@@ -500,7 +500,7 @@ private object DarkGlass {
 
 private object LightGlass {
     val sheet = GlassStyle(
-        blur = 40.dp,
+        blur = 60.dp,
         tintTop = white(0.70f),
         tintBottom = white(0.70f),
         fallbackBase = Color(0xFFF4F6FA),
@@ -511,7 +511,7 @@ private object LightGlass {
         glow = 0f,
     )
     val floatingPill = GlassStyle(
-        blur = 42.dp,
+        blur = 60.dp,
         tintTop = white(0.72f),
         tintBottom = white(0.70f),
         fallbackBase = Color(0xFFF6F7FA),
@@ -572,7 +572,7 @@ private object LightGlass {
         baseAlpha = 0.95f,
     )
     val card = GlassStyle(
-        blur = 42.dp,
+        blur = 60.dp,
         tintTop = white(0.75f),
         tintBottom = white(0.72f),
         fallbackBase = Color(0xFFF6F8FB),
@@ -583,7 +583,7 @@ private object LightGlass {
         glow = 0f,
     )
     val menu = GlassStyle(
-        blur = 42.dp,
+        blur = 60.dp,
         tintTop = white(0.78f),
         tintBottom = white(0.75f),
         fallbackBase = Color(0xFFF6F8FB),

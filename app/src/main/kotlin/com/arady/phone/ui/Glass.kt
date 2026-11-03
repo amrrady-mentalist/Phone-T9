@@ -15,6 +15,13 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -75,9 +82,16 @@ import kotlin.math.roundToInt
 // the panel falls back to a more opaque tint so it still looks like glass.
 // ---------------------------------------------------------------------------------------------
 
+// What the glass panels blur. Sharing one recorded layer between nodes did not render on every device, so the
+// screen instead hands over a small composable that draws a copy of the list behind the panels. Each panel
+// composes that copy itself, shifts it into place and blurs it.
 class GlassSource internal constructor(val layer: GraphicsLayer) {
-    // Where the source sits on screen, so panels can line their copy of it up.
+    // Where the list sits on screen (root coordinates) and how big it is.
     var origin by mutableStateOf(Offset.Zero)
+    var size by mutableStateOf(IntSize.Zero)
+
+    // Draws a non-interactive copy of the content behind the panels. Set by the screen.
+    var content by mutableStateOf<(@Composable () -> Unit)?>(null)
 }
 
 @Composable
@@ -86,23 +100,11 @@ fun rememberGlassSource(): GlassSource {
     return remember(layer) { GlassSource(layer) }
 }
 
-// Put this on the container that holds everything the glass panels should blur.
-// Glass panels must be SIBLINGS drawn after this container, never inside it.
+// Put this on the list (or whatever the copy in source.content mirrors): it records where that area is.
 fun Modifier.glassSource(source: GlassSource): Modifier = this
-    .onGloballyPositioned { source.origin = it.positionInRoot() }
-    .drawWithContent {
-        val w = size.width.roundToInt()
-        val h = size.height.roundToInt()
-        if (w > 0 && h > 0) {
-            // Record the content once into the layer, then show the page FROM that layer, so the layer is
-            // guaranteed to hold exactly what is on screen (panels draw their blurred backdrop from it).
-            source.layer.record(this, layoutDirection, IntSize(w, h)) {
-                this@drawWithContent.drawContent()
-            }
-            drawLayer(source.layer)
-        } else {
-            drawContent()
-        }
+    .onGloballyPositioned {
+        source.origin = it.positionInRoot()
+        source.size = it.size
     }
 
 @Immutable
@@ -233,78 +235,55 @@ fun GlassStyle.overBackdrop(): GlassStyle = GlassStyle(
     glow = glow,
 )
 
-// Blurred copy of whatever is behind the panel. Built from ordinary pieces: a Box that blurs its own content
-// (Modifier.blur) and draws the source screen into it. A solid base sits underneath, so if the blur were ever
-// unavailable the panel simply stays solid, and sharp text can never show through.
+// Blurred copy of whatever is behind the panel. A solid base sits underneath, so if there is nothing to copy
+// (or the blur is unavailable) the panel simply stays solid and sharp text can never show through.
 @Composable
 private fun GlassBackdrop(modifier: Modifier, shape: Shape, style: GlassStyle, source: GlassSource) {
     var pos by remember { mutableStateOf(Offset.Zero) }
+    val density = LocalDensity.current
     val dim = if (PhoneColors.isDark) Color.Black.copy(alpha = 0.26f) else Color.White.copy(alpha = 0.22f)
+    val content = source.content
     Box(
         modifier
             .onGloballyPositioned { pos = it.positionInRoot() }
             .clip(shape)
-            .background(style.fallbackBase),
+            .background(style.fallbackBase)
+            .clearAndSetSemantics { },
     ) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .blur(style.blur, BlurredEdgeTreatment.Rectangle)
-                .drawBehind {
-                    translate(left = source.origin.x - pos.x, top = source.origin.y - pos.y) {
-                        drawLayer(source.layer)
-                    }
-                },
-        )
-        Box(Modifier.fillMaxSize().background(dim))
-        if (GLASS_DEBUG) {
-            // Debug only. LEFT half (red tint): screen copy drawn straight from the shared layer.
-            // RIGHT half (green tint): screen copy drawn through a layer owned by this panel.
-            val dbgLayer = rememberGraphicsLayer()
+        if (content != null && source.size.width > 0 && source.size.height > 0) {
             Box(
                 Modifier
-                    .fillMaxHeight()
-                    .fillMaxWidth(0.5f)
-                    .align(Alignment.CenterStart)
-                    .background(Color.Red.copy(alpha = 0.18f))
-                    .drawBehind {
-                        translate(left = source.origin.x - pos.x, top = source.origin.y - pos.y) {
-                            drawLayer(source.layer)
-                        }
-                    },
-            )
-            Box(
-                Modifier
-                    .fillMaxHeight()
-                    .fillMaxWidth(0.5f)
-                    .align(Alignment.CenterEnd)
-                    .background(Color.Green.copy(alpha = 0.18f))
-                    .drawBehind {
-                        val w = size.width.roundToInt()
-                        val h = size.height.roundToInt()
-                        if (w > 0 && h > 0) {
-                            dbgLayer.record(this, layoutDirection, IntSize(w, h)) {
-                                translate(left = source.origin.x - pos.x - size.width, top = source.origin.y - pos.y) {
-                                    drawLayer(source.layer)
-                                }
+                    .fillMaxSize()
+                    .blur(style.blur, BlurredEdgeTreatment.Rectangle)
+                    // swallow touches so the copy can never be tapped or scrolled
+                    .pointerInput(Unit) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                event.changes.forEach { it.consume() }
                             }
-                            drawLayer(dbgLayer)
                         }
                     },
-            )
-            Text(
-                text = "B3 L=direct R=ownlayer o=${source.origin.x.roundToInt()},${source.origin.y.roundToInt()} " +
-                    "p=${pos.x.roundToInt()},${pos.y.roundToInt()} layer=${source.layer.size.width}x${source.layer.size.height}",
-                color = Color.Magenta,
-                fontSize = 10.sp,
-                modifier = Modifier.align(Alignment.TopStart).padding(start = 12.dp, top = 2.dp),
-            )
+            ) {
+                Box(
+                    Modifier
+                        .wrapContentSize(Alignment.TopStart, unbounded = true)
+                        .offset {
+                            IntOffset(
+                                (source.origin.x - pos.x).roundToInt(),
+                                (source.origin.y - pos.y).roundToInt(),
+                            )
+                        }
+                        .requiredSize(
+                            with(density) { source.size.width.toDp() },
+                            with(density) { source.size.height.toDp() },
+                        ),
+                ) { content() }
+            }
         }
+        Box(Modifier.fillMaxSize().background(dim))
     }
 }
-
-// Set to false to remove the debug overlay.
-private const val GLASS_DEBUG = true
 
 // Frosted glass panel with a real blurred backdrop (use this for panels that sit over content: the keypad
 // sheet, the floating nav, menus and popups). Put size / padding / shadow in [modifier].

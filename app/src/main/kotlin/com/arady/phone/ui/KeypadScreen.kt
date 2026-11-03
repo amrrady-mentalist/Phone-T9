@@ -25,6 +25,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -85,13 +90,13 @@ fun KeypadScreen(
     val scope = rememberCoroutineScope()
 
     val glass = rememberGlassSource()
+    val listState = rememberLazyListState()
 
     Box(Modifier.fillMaxSize()) {
         // Everything inside this Box is what the glass panels blur.
         Box(
             Modifier
                 .fillMaxSize()
-                .glassSource(glass)
                 .background(PhoneColors.BgMain)
                 .ambientGlow()
         ) {
@@ -173,6 +178,12 @@ fun KeypadScreen(
                     }
                 }
 
+                // What the glass panels blur: a non-interactive copy of this list.
+                val backdropCopy: @Composable () -> Unit = { CallsBackdropList(filteredCalls, vm.keypadVisible, listState) }
+                SideEffect {
+                    glass.content = if (filteredCalls.isEmpty()) null else backdropCopy
+                }
+
                 if (filteredCalls.isEmpty()) {
                     Box(
                         modifier = Modifier
@@ -200,9 +211,11 @@ fun KeypadScreen(
                     }
                 } else {
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth()
+                            .glassSource(glass)
                             .padding(horizontal = 16.dp),
                     ) {
                         items(filteredCalls, key = { it.id }) { call ->
@@ -487,6 +500,30 @@ private fun CallsTopBar(
                         .padding(horizontal = 4.dp, vertical = 6.dp),
                 )
             }
+        }
+    }
+}
+
+// Non-interactive mirror of the calls list, drawn behind the glass panels (blurred there).
+@Composable
+private fun CallsBackdropList(calls: List<RecentCall>, keypadVisible: Boolean, main: LazyListState) {
+    val mirror = rememberLazyListState()
+    LaunchedEffect(main) {
+        snapshotFlow { main.firstVisibleItemIndex to main.firstVisibleItemScrollOffset }
+            .collect { (i, o) -> mirror.scrollToItem(i, o) }
+    }
+    LazyColumn(
+        state = mirror,
+        userScrollEnabled = false,
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+    ) {
+        items(calls, key = { it.id }) { call ->
+            CallItemRow(call = call, onClick = {}, onInfoClick = {})
+        }
+        item {
+            Spacer(Modifier.height(if (keypadVisible) 480.dp else 110.dp))
         }
     }
 }

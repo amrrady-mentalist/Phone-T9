@@ -90,13 +90,17 @@ fun rememberGlassSource(): GlassSource {
 fun Modifier.glassSource(source: GlassSource): Modifier = this
     .onGloballyPositioned { source.origin = it.positionInRoot() }
     .drawWithContent {
-        drawContent()
         val w = size.width.roundToInt()
         val h = size.height.roundToInt()
         if (w > 0 && h > 0) {
+            // Record the content once into the layer, then show the page FROM that layer, so the layer is
+            // guaranteed to hold exactly what is on screen (panels draw their blurred backdrop from it).
             source.layer.record(this, layoutDirection, IntSize(w, h)) {
                 this@drawWithContent.drawContent()
             }
+            drawLayer(source.layer)
+        } else {
+            drawContent()
         }
     }
 

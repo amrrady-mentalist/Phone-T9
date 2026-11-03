@@ -155,12 +155,23 @@ fun Modifier.glass(
 
             // Everything is clipped strictly inside the shape to prevent square corners leaking
             clipPath(path) {
-                // 1. Blurred background content (draw first so it sits beneath the glass tints)
-                if (source != null) {
+                // 1. Base background fill:
+                // For frosted glass panels with active backdrop blur (canBlur == true), draw the solid base
+                // FIRST so that 100% of the sharp text and lines from the framebuffer underneath are completely
+                // obscured (zero sharp text leakage).
+                // For non-blur elements (keys, chips), use style.baseAlpha for their layered translucent look.
+                if (style.fallbackBase != Color.Transparent) {
+                    val baseColor = if (canBlur) style.fallbackBase else style.fallbackBase.copy(alpha = style.baseAlpha)
+                    drawRect(baseColor)
+                }
+
+                // 2. Blurred backdrop layer (draw on top of opaque base so soft ambient glows and shadows diffuse into the glass)
+                if (source != null && canBlur) {
                     val w = size.width.roundToInt()
                     val h = size.height.roundToInt()
-                    if (canBlur && w > 0 && h > 0) {
+                    if (w > 0 && h > 0) {
                         blurLayer.renderEffect = effect
+                        blurLayer.alpha = 0.55f
                         blurLayer.record(this, layoutDirection, IntSize(w, h)) {
                             translate(left = source.origin.x - pos.x, top = source.origin.y - pos.y) {
                                 drawLayer(source.layer)
@@ -168,19 +179,12 @@ fun Modifier.glass(
                         }
                         drawLayer(blurLayer)
                     }
-                    // Translucent base filter over blurred layer
-                    if (style.fallbackBase != Color.Transparent) {
-                        val effectiveAlpha = if (canBlur) style.baseAlpha else (style.baseAlpha + 0.04f).coerceAtMost(0.96f)
-                        drawRect(style.fallbackBase.copy(alpha = effectiveAlpha))
-                    }
-                } else if (style.fallbackBase != Color.Transparent) {
-                    drawRect(style.fallbackBase.copy(alpha = style.baseAlpha))
                 }
 
-                // 2. Translucent Glass Tint
+                // 3. Translucent Glass Tint (uniform frosted glass wash)
                 drawRect(Brush.verticalGradient(listOf(style.tintTop, style.tintBottom)))
 
-                // 3. Curvature Top Sheen (clean specular optical reflection right at the top curved lip)
+                // 4. Curvature Top Sheen (clean specular optical reflection right at the top curved lip)
                 val sheenHeight = minOf(size.height * 0.16f, with(density) { 24.dp.toPx() })
                 if (sheenHeight > 0f && style.sheen.alpha > 0f) {
                     drawRect(
@@ -393,7 +397,7 @@ private fun black(a: Float) = Color.Black.copy(alpha = a)
 
 private object DarkGlass {
     val sheet = GlassStyle(
-        blur = 60.dp,
+        blur = 64.dp,
         tintTop = white(0.06f),
         tintBottom = white(0.04f),
         fallbackBase = Color(0xFF14151B),
@@ -404,7 +408,7 @@ private object DarkGlass {
         glow = 0f,
     )
     val floatingPill = GlassStyle(
-        blur = 60.dp,
+        blur = 64.dp,
         tintTop = white(0.07f),
         tintBottom = white(0.05f),
         fallbackBase = Color(0xFF1E2026),
@@ -465,7 +469,7 @@ private object DarkGlass {
         baseAlpha = 0.86f,
     )
     val card = GlassStyle(
-        blur = 60.dp,
+        blur = 64.dp,
         tintTop = white(0.06f),
         tintBottom = white(0.05f),
         fallbackBase = Color(0xFF1C1D23),
@@ -476,7 +480,7 @@ private object DarkGlass {
         glow = 0f,
     )
     val menu = GlassStyle(
-        blur = 60.dp,
+        blur = 64.dp,
         tintTop = white(0.06f),
         tintBottom = white(0.05f),
         fallbackBase = Color(0xFF1C1D23),
@@ -500,7 +504,7 @@ private object DarkGlass {
 
 private object LightGlass {
     val sheet = GlassStyle(
-        blur = 60.dp,
+        blur = 64.dp,
         tintTop = white(0.70f),
         tintBottom = white(0.70f),
         fallbackBase = Color(0xFFF4F6FA),
@@ -511,7 +515,7 @@ private object LightGlass {
         glow = 0f,
     )
     val floatingPill = GlassStyle(
-        blur = 60.dp,
+        blur = 64.dp,
         tintTop = white(0.72f),
         tintBottom = white(0.70f),
         fallbackBase = Color(0xFFF6F7FA),
@@ -572,7 +576,7 @@ private object LightGlass {
         baseAlpha = 0.95f,
     )
     val card = GlassStyle(
-        blur = 60.dp,
+        blur = 64.dp,
         tintTop = white(0.75f),
         tintBottom = white(0.72f),
         fallbackBase = Color(0xFFF6F8FB),
@@ -583,7 +587,7 @@ private object LightGlass {
         glow = 0f,
     )
     val menu = GlassStyle(
-        blur = 60.dp,
+        blur = 64.dp,
         tintTop = white(0.78f),
         tintBottom = white(0.75f),
         fallbackBase = Color(0xFFF6F8FB),

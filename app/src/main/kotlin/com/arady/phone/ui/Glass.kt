@@ -40,6 +40,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -87,15 +88,13 @@ fun rememberGlassSource(): GlassSource {
 fun Modifier.glassSource(source: GlassSource): Modifier = this
     .onGloballyPositioned { source.origin = it.positionInRoot() }
     .drawWithContent {
+        drawContent()
         val w = size.width.roundToInt()
         val h = size.height.roundToInt()
         if (w > 0 && h > 0) {
             source.layer.record(this, layoutDirection, IntSize(w, h)) {
                 this@drawWithContent.drawContent()
             }
-            drawLayer(source.layer)
-        } else {
-            drawContent()
         }
     }
 
@@ -136,8 +135,8 @@ fun Modifier.glass(
     source: GlassSource? = null,
 ): Modifier {
     val density = LocalDensity.current
+    val isDark = PhoneColors.isDark
     val blurPx = with(density) { style.blur.toPx() }
-    val blurLayer = rememberGraphicsLayer()
     val canBlur = source != null && blurPx > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     var pos by remember { mutableStateOf(Offset.Zero) }
 
@@ -165,19 +164,17 @@ fun Modifier.glass(
                     drawRect(baseColor)
                 }
 
-                // 2. Blurred backdrop layer (draw on top of opaque base so soft ambient glows and shadows diffuse into the glass)
+                // 2. Blurred backdrop layer (draw on top of solid base so soft ambient glows and shadows diffuse into the glass)
                 if (source != null && canBlur) {
                     val w = size.width.roundToInt()
                     val h = size.height.roundToInt()
                     if (w > 0 && h > 0) {
-                        blurLayer.renderEffect = effect
-                        blurLayer.alpha = 0.55f
-                        blurLayer.record(this, layoutDirection, IntSize(w, h)) {
-                            translate(left = source.origin.x - pos.x, top = source.origin.y - pos.y) {
-                                drawLayer(source.layer)
-                            }
+                        source.layer.renderEffect = effect
+                        source.layer.alpha = 0.85f
+                        source.layer.blendMode = if (isDark) BlendMode.Screen else BlendMode.SrcOver
+                        translate(left = source.origin.x - pos.x, top = source.origin.y - pos.y) {
+                            drawLayer(source.layer)
                         }
-                        drawLayer(blurLayer)
                     }
                 }
 

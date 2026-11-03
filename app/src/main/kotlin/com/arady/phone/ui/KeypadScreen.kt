@@ -615,10 +615,15 @@ private fun CallItemRow(
 
 @Composable
 private fun KeypadSheet(vm: PhoneViewModel, glass: GlassSource) {
+    GlassSurface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+        style = PhoneGlass.sheet,
+        source = glass,
+    ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .glass(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp), PhoneGlass.sheet, glass)
             .navigationBarsPadding()
             .padding(top = 10.dp, bottom = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -816,6 +821,7 @@ private fun KeypadSheet(vm: PhoneViewModel, glass: GlassSource) {
             modifier = Modifier.padding(top = 2.dp, bottom = 4.dp),
         )
     }
+    }
 }
 
 @Composable
@@ -830,7 +836,7 @@ fun FloatingPillNav(
     val shadowAmbient = if (PhoneColors.isDark) Color.Black.copy(alpha = 0.50f) else Color.Black.copy(alpha = 0.12f)
     val shadowSpot = if (PhoneColors.isDark) Color.Black.copy(alpha = 0.65f) else Color.Black.copy(alpha = 0.18f)
 
-    Row(
+    GlassSurface(
         modifier = modifier
             .then(
                 if (!docked) {
@@ -838,9 +844,13 @@ fun FloatingPillNav(
                 } else {
                     Modifier
                 }
-            )
-            .glass(CircleShape, if (docked) PhoneGlass.dockedPill else PhoneGlass.floatingPill, glass)
-            .padding(horizontal = 4.dp, vertical = 4.dp),
+            ),
+        shape = CircleShape,
+        style = if (docked) PhoneGlass.dockedPill else PhoneGlass.floatingPill,
+        source = glass,
+    ) {
+    Row(
+        modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -890,6 +900,7 @@ fun FloatingPillNav(
                 fontWeight = if (contactsActive) FontWeight.SemiBold else FontWeight.Medium,
             )
         }
+    }
     }
 }
 

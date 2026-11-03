@@ -252,8 +252,31 @@ private fun GlassBackdrop(modifier: Modifier, shape: Shape, style: GlassStyle, s
                 },
         )
         Box(Modifier.fillMaxSize().background(dim))
+        if (GLASS_DEBUG) {
+            // Debug only: an UNBLURRED ghost copy of the screen at 50%, plus the numbers used to place it.
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = 0.5f }
+                    .drawBehind {
+                        translate(left = source.origin.x - pos.x, top = source.origin.y - pos.y) {
+                            drawLayer(source.layer)
+                        }
+                    },
+            )
+            Text(
+                text = "GLASS DEBUG o=${source.origin.x.roundToInt()},${source.origin.y.roundToInt()} " +
+                    "p=${pos.x.roundToInt()},${pos.y.roundToInt()} layer=${source.layer.size.width}x${source.layer.size.height}",
+                color = Color.Magenta,
+                fontSize = 10.sp,
+                modifier = Modifier.align(Alignment.TopStart).padding(start = 12.dp, top = 2.dp),
+            )
+        }
     }
 }
+
+// Set to false to remove the debug overlay.
+private const val GLASS_DEBUG = true
 
 // Frosted glass panel with a real blurred backdrop (use this for panels that sit over content: the keypad
 // sheet, the floating nav, menus and popups). Put size / padding / shadow in [modifier].

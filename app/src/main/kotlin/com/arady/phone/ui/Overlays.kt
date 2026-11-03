@@ -67,11 +67,11 @@ fun PeekOverlay(vm: PhoneViewModel, glass: GlassSource) {
                     RoundedCornerShape(28.dp),
                     ambientColor = if (PhoneColors.isDark) Color.Black.copy(alpha = 0.65f) else Color.Black.copy(alpha = 0.16f),
                     spotColor = if (PhoneColors.isDark) Color.Black.copy(alpha = 0.80f) else Color.Black.copy(alpha = 0.22f),
-                )
-                .glass(RoundedCornerShape(28.dp), PhoneGlass.card, glass)
-                .padding(20.dp),
+                ),
             onClick = {},
         ) {
+          GlassSurface(Modifier.fillMaxWidth(), RoundedCornerShape(28.dp), PhoneGlass.card, glass) {
+          Box(Modifier.padding(20.dp)) {
             Column {
                 Text(
                     "SMART RESULTS ENGINE",
@@ -135,6 +135,8 @@ fun PeekOverlay(vm: PhoneViewModel, glass: GlassSource) {
                     }
                 }
             }
+          }
+          }
         }
     }
 }
@@ -178,11 +180,11 @@ fun SettingsOverlay(vm: PhoneViewModel, glass: GlassSource) {
                     RoundedCornerShape(28.dp),
                     ambientColor = if (PhoneColors.isDark) Color.Black.copy(alpha = 0.65f) else Color.Black.copy(alpha = 0.16f),
                     spotColor = if (PhoneColors.isDark) Color.Black.copy(alpha = 0.80f) else Color.Black.copy(alpha = 0.22f),
-                )
-                .glass(RoundedCornerShape(28.dp), PhoneGlass.card, glass)
-                .padding(22.dp),
+                ),
             onClick = {},
         ) {
+          GlassSurface(Modifier.fillMaxWidth(), RoundedCornerShape(28.dp), PhoneGlass.card, glass) {
+          Box(Modifier.padding(22.dp)) {
             Column {
                 Text(
                     "Settings",
@@ -294,6 +296,8 @@ fun SettingsOverlay(vm: PhoneViewModel, glass: GlassSource) {
                     }
                 }
             }
+          }
+          }
         }
     }
 }

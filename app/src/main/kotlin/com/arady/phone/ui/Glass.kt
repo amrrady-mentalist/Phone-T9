@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -257,19 +258,42 @@ private fun GlassBackdrop(modifier: Modifier, shape: Shape, style: GlassStyle, s
         )
         Box(Modifier.fillMaxSize().background(dim))
         if (GLASS_DEBUG) {
-            // Debug only: an UNBLURRED ghost copy of the screen at 50%, plus the numbers used to place it.
+            // Debug only. LEFT half (red tint): screen copy drawn straight from the shared layer.
+            // RIGHT half (green tint): screen copy drawn through a layer owned by this panel.
+            val dbgLayer = rememberGraphicsLayer()
             Box(
                 Modifier
-                    .fillMaxSize()
-                    .graphicsLayer { alpha = 0.5f }
+                    .fillMaxHeight()
+                    .fillMaxWidth(0.5f)
+                    .align(Alignment.CenterStart)
+                    .background(Color.Red.copy(alpha = 0.18f))
                     .drawBehind {
                         translate(left = source.origin.x - pos.x, top = source.origin.y - pos.y) {
                             drawLayer(source.layer)
                         }
                     },
             )
+            Box(
+                Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(0.5f)
+                    .align(Alignment.CenterEnd)
+                    .background(Color.Green.copy(alpha = 0.18f))
+                    .drawBehind {
+                        val w = size.width.roundToInt()
+                        val h = size.height.roundToInt()
+                        if (w > 0 && h > 0) {
+                            dbgLayer.record(this, layoutDirection, IntSize(w, h)) {
+                                translate(left = source.origin.x - pos.x - size.width, top = source.origin.y - pos.y) {
+                                    drawLayer(source.layer)
+                                }
+                            }
+                            drawLayer(dbgLayer)
+                        }
+                    },
+            )
             Text(
-                text = "GLASS DEBUG o=${source.origin.x.roundToInt()},${source.origin.y.roundToInt()} " +
+                text = "B3 L=direct R=ownlayer o=${source.origin.x.roundToInt()},${source.origin.y.roundToInt()} " +
                     "p=${pos.x.roundToInt()},${pos.y.roundToInt()} layer=${source.layer.size.width}x${source.layer.size.height}",
                 color = Color.Magenta,
                 fontSize = 10.sp,

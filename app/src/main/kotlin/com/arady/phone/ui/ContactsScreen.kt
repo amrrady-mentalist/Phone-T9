@@ -21,6 +21,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -81,6 +86,86 @@ private fun buildRows(contacts: List<Contact>, query: String): List<ListRow> {
     return rows
 }
 
+// The contacts list. With state != null it is the real list; with mirrorOf != null it is a non-interactive copy
+// that follows the real list's scroll position (used behind the glass panels).
+@Composable
+private fun ContactsList(
+    rows: List<ListRow>,
+    onOpen: (Contact) -> Unit,
+    state: LazyListState?,
+    mirrorOf: LazyListState?,
+    modifier: Modifier = Modifier,
+) {
+    val listState = state ?: rememberLazyListState()
+    if (mirrorOf != null) {
+        LaunchedEffect(mirrorOf) {
+            snapshotFlow { mirrorOf.firstVisibleItemIndex to mirrorOf.firstVisibleItemScrollOffset }
+                .collect { (i, o) -> listState.scrollToItem(i, o) }
+        }
+    }
+    LazyColumn(
+        state = listState,
+        userScrollEnabled = mirrorOf == null,
+        modifier = (if (mirrorOf != null) Modifier.fillMaxSize() else modifier)
+            .padding(horizontal = 20.dp),
+    ) {
+        items(rows) { row ->
+            when (row) {
+                is ListRow.Header -> {
+                    Text(
+                        text = row.letter,
+                        color = PhoneColors.CallGreen,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 4.dp, top = 16.dp, bottom = 6.dp),
+                    )
+                }
+                is ListRow.Item -> {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { onOpen(row.contact) }
+                            .padding(vertical = 9.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        val avatarColor = getAvatarColor(row.contact.name)
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(CircleShape)
+                                .background(avatarColor),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = initialOf(row.contact.name),
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+
+                        Spacer(Modifier.width(14.dp))
+
+                        Text(
+                            text = row.contact.name,
+                            color = PhoneColors.TextMain,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+        }
+
+
+        item {
+            Spacer(Modifier.height(100.dp))
+        }
+    }
+}
+
 @Composable
 fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
     val context = LocalContext.current
@@ -91,12 +176,12 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
     val scope = rememberCoroutineScope()
 
     val glass = rememberGlassSource()
+    val listState = rememberLazyListState()
 
     Box(Modifier.fillMaxSize()) {
         Box(
             Modifier
                 .fillMaxSize()
-                .glassSource(glass)
                 .background(PhoneColors.BgMain)
                 .ambientGlow()
         ) {
@@ -279,66 +364,18 @@ fun ContactsScreen(vm: PhoneViewModel, requestPermission: () -> Unit) {
                             .padding(48.dp),
                     )
                 } else {
-                    LazyColumn(
+                    val backdropCopy: @Composable () -> Unit = { ContactsList(rows, onOpen = {}, state = null, mirrorOf = listState) }
+                    SideEffect { glass.content = backdropCopy }
+                    ContactsList(
+                        rows = rows,
+                        onOpen = { vm.openContact(it) },
+                        state = listState,
+                        mirrorOf = null,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp),
-                    ) {
-                        items(rows) { row ->
-                            when (row) {
-                                is ListRow.Header -> {
-                                    Text(
-                                        text = row.letter,
-                                        color = PhoneColors.CallGreen,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(start = 4.dp, top = 16.dp, bottom = 6.dp),
-                                    )
-                                }
-                                is ListRow.Item -> {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .clickable { vm.openContact(row.contact) }
-                                            .padding(vertical = 9.dp, horizontal = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        val avatarColor = getAvatarColor(row.contact.name)
-                                        Box(
-                                            modifier = Modifier
-                                                .size(42.dp)
-                                                .clip(CircleShape)
-                                                .background(avatarColor),
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            Text(
-                                                text = initialOf(row.contact.name),
-                                                color = Color.White,
-                                                fontSize = 16.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                            )
-                                        }
-
-                                        Spacer(Modifier.width(14.dp))
-
-                                        Text(
-                                            text = row.contact.name,
-                                            color = PhoneColors.TextMain,
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            modifier = Modifier.weight(1f),
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        item {
-                            Spacer(Modifier.height(100.dp))
-                        }
-                    }
+                            .glassSource(glass),
+                    )
                 }
             }
         }

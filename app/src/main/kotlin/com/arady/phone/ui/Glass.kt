@@ -36,6 +36,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
@@ -212,6 +214,67 @@ fun Modifier.glass(
         )
 }
 
+// The same style, but for the panel content that sits ON TOP of a GlassBackdrop: no solid base, so the
+// blurred backdrop shows through (tint, sheen and edge light stay).
+fun GlassStyle.overBackdrop(): GlassStyle = GlassStyle(
+    blur = 0.dp,
+    tintTop = tintTop,
+    tintBottom = tintBottom,
+    fallbackBase = fallbackBase,
+    sheen = sheen,
+    borderTop = borderTop,
+    borderBottom = borderBottom,
+    baseAlpha = 0f,
+    glow = glow,
+)
+
+// Blurred copy of whatever is behind the panel. Built from ordinary pieces: a Box that blurs its own content
+// (Modifier.blur) and draws the source screen into it. A solid base sits underneath, so if the blur were ever
+// unavailable the panel simply stays solid, and sharp text can never show through.
+@Composable
+private fun GlassBackdrop(modifier: Modifier, shape: Shape, style: GlassStyle, source: GlassSource) {
+    var pos by remember { mutableStateOf(Offset.Zero) }
+    val dim = if (PhoneColors.isDark) Color.Black.copy(alpha = 0.26f) else Color.White.copy(alpha = 0.22f)
+    Box(
+        modifier
+            .onGloballyPositioned { pos = it.positionInRoot() }
+            .clip(shape)
+            .background(style.fallbackBase),
+    ) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .blur(style.blur, BlurredEdgeTreatment.Rectangle)
+                .drawBehind {
+                    translate(left = source.origin.x - pos.x, top = source.origin.y - pos.y) {
+                        drawLayer(source.layer)
+                    }
+                },
+        )
+        Box(Modifier.fillMaxSize().background(dim))
+    }
+}
+
+// Frosted glass panel with a real blurred backdrop (use this for panels that sit over content: the keypad
+// sheet, the floating nav, menus and popups). Put size / padding / shadow in [modifier].
+@Composable
+fun GlassSurface(
+    modifier: Modifier = Modifier,
+    shape: Shape,
+    style: GlassStyle,
+    source: GlassSource?,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    if (source == null || style.blur <= 0.dp || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+        Box(modifier.glass(shape, style, null), content = content)
+        return
+    }
+    Box(modifier) {
+        GlassBackdrop(Modifier.matchParentSize(), shape, style, source)
+        Box(Modifier.glass(shape, style.overBackdrop(), null), content = content)
+    }
+}
+
 // Glass button with physical contact shadow and press feedback (slight shrink + brighter tint).
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -332,18 +395,24 @@ fun GlassMenu(
         ) {
             val shadowColor = if (PhoneColors.isDark) Color.Black.copy(alpha = 0.60f) else Color.Black.copy(alpha = 0.14f)
             val menuShape = RoundedCornerShape(20.dp)
-            Column(
+            GlassSurface(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .statusBarsPadding()
                     .padding(top = 52.dp, end = 20.dp)
                     .widthIn(min = 210.dp, max = 270.dp)
-                    .shadow(18.dp, menuShape, ambientColor = shadowColor, spotColor = shadowColor)
-                    .glass(menuShape, PhoneGlass.menu, glass)
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
-                    .padding(vertical = 4.dp),
-                content = content,
-            )
+                    .shadow(18.dp, menuShape, ambientColor = shadowColor, spotColor = shadowColor),
+                shape = menuShape,
+                style = PhoneGlass.menu,
+                source = glass,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
+                        .padding(vertical = 4.dp),
+                    content = content,
+                )
+            }
         }
     }
 }
@@ -394,7 +463,7 @@ private fun black(a: Float) = Color.Black.copy(alpha = a)
 
 private object DarkGlass {
     val sheet = GlassStyle(
-        blur = 64.dp,
+        blur = 30.dp,
         tintTop = white(0.06f),
         tintBottom = white(0.04f),
         fallbackBase = Color(0xFF14151B),
@@ -405,7 +474,7 @@ private object DarkGlass {
         glow = 0f,
     )
     val floatingPill = GlassStyle(
-        blur = 64.dp,
+        blur = 30.dp,
         tintTop = white(0.07f),
         tintBottom = white(0.05f),
         fallbackBase = Color(0xFF1E2026),
@@ -466,7 +535,7 @@ private object DarkGlass {
         baseAlpha = 0.86f,
     )
     val card = GlassStyle(
-        blur = 64.dp,
+        blur = 30.dp,
         tintTop = white(0.06f),
         tintBottom = white(0.05f),
         fallbackBase = Color(0xFF1C1D23),
@@ -477,7 +546,7 @@ private object DarkGlass {
         glow = 0f,
     )
     val menu = GlassStyle(
-        blur = 64.dp,
+        blur = 30.dp,
         tintTop = white(0.06f),
         tintBottom = white(0.05f),
         fallbackBase = Color(0xFF1C1D23),
@@ -501,9 +570,9 @@ private object DarkGlass {
 
 private object LightGlass {
     val sheet = GlassStyle(
-        blur = 64.dp,
-        tintTop = white(0.70f),
-        tintBottom = white(0.70f),
+        blur = 30.dp,
+        tintTop = white(0.34f),
+        tintBottom = white(0.26f),
         fallbackBase = Color(0xFFF4F6FA),
         sheen = Color.Transparent,
         borderTop = white(0.96f),
@@ -512,9 +581,9 @@ private object LightGlass {
         glow = 0f,
     )
     val floatingPill = GlassStyle(
-        blur = 64.dp,
-        tintTop = white(0.72f),
-        tintBottom = white(0.70f),
+        blur = 30.dp,
+        tintTop = white(0.34f),
+        tintBottom = white(0.26f),
         fallbackBase = Color(0xFFF6F7FA),
         sheen = Color.Transparent,
         borderTop = white(0.96f),
@@ -573,9 +642,9 @@ private object LightGlass {
         baseAlpha = 0.95f,
     )
     val card = GlassStyle(
-        blur = 64.dp,
-        tintTop = white(0.75f),
-        tintBottom = white(0.72f),
+        blur = 30.dp,
+        tintTop = white(0.34f),
+        tintBottom = white(0.26f),
         fallbackBase = Color(0xFFF6F8FB),
         sheen = Color.Transparent,
         borderTop = white(0.98f),
@@ -584,9 +653,9 @@ private object LightGlass {
         glow = 0f,
     )
     val menu = GlassStyle(
-        blur = 64.dp,
-        tintTop = white(0.78f),
-        tintBottom = white(0.75f),
+        blur = 30.dp,
+        tintTop = white(0.34f),
+        tintBottom = white(0.26f),
         fallbackBase = Color(0xFFF6F8FB),
         sheen = Color.Transparent,
         borderTop = white(0.98f),
